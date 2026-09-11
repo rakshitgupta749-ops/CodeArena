@@ -1,0 +1,434 @@
+{
+  "version": 1,
+  "defaults": {
+    "max_score": 5,
+    "uncertain_if": {
+      "matched_required_concepts": 1,
+      "answer_tokens_below": 14
+    }
+  },
+  "rules": {
+    "HAS_A_01": {
+      "match": {
+        "any": [
+          "has-a",
+          "has a relationship",
+          "has a relation",
+          "composition",
+          "aggregation"
+        ]
+      },
+      "intent": "understand Has-A relationship in Java",
+      "max_score": 5,
+      "concepts": [
+        {
+          "id": "composition_or_aggregation",
+          "label": "Names composition or aggregation",
+          "marks": 2,
+          "required": true,
+          "variants": [
+            "composition",
+            "aggregation",
+            "has a relationship",
+            "has-a relationship",
+            "whole part relationship",
+            "part of relationship"
+          ]
+        },
+        {
+          "id": "contains_object",
+          "label": "Says one class contains another object",
+          "marks": 2,
+          "required": true,
+          "variants": [
+            "contains another object",
+            "contains an object",
+            "has an object",
+            "object as a member",
+            "object as member",
+            "member variable",
+            "instance variable",
+            "field of another class",
+            "class has another class",
+            "class contains another class",
+            "one class contains",
+            "inside another class",
+            "data member"
+          ]
+        },
+        {
+          "id": "example",
+          "label": "Gives a valid Has-A example",
+          "marks": 1,
+          "required": false,
+          "variants": [
+            "company has employees",
+            "company has employee",
+            "car has engine",
+            "student has address",
+            "library has books",
+            "order has items",
+            "person has address"
+          ]
+        },
+        {
+          "id": "object_vague",
+          "label": "Mentions object relationship vaguely",
+          "marks": 1,
+          "required": false,
+          "variants": [
+            "depends upon the objects",
+            "depends on the objects",
+            "object requirements",
+            "objects calling",
+            "object relation",
+            "object relationship"
+          ],
+          "soft": true
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "confuses_with_is_a",
+          "label": "Confuses Has-A with inheritance or IS-A",
+          "penalty": 2,
+          "variants": [
+            "same as is a",
+            "same as is-a",
+            "extends means has a",
+            "inheritance is has a",
+            "has a means inheritance",
+            "subclass has a superclass"
+          ]
+        },
+        {
+          "id": "wrong_reason",
+          "label": "Gives an unrelated reason",
+          "penalty": 1,
+          "variants": [
+            "performance",
+            "faster execution",
+            "syntax only",
+            "only for syntax"
+          ]
+        }
+      ],
+      "uncertain_if": {
+        "matched_required_concepts": 1,
+        "answer_tokens_below": 14
+      }
+    },
+    "ENCAPSULATION_01": {
+      "match": {
+        "any": [
+          "encapsulation",
+          "private fields",
+          "private variables",
+          "data hiding",
+          "getter",
+          "setter"
+        ]
+      },
+      "intent": "understand encapsulation and private fields in Java",
+      "max_score": 5,
+      "concepts": [
+        {
+          "id": "data_hiding",
+          "label": "Explains data hiding",
+          "marks": 2,
+          "required": true,
+          "variants": [
+            "data hiding",
+            "hide data",
+            "hide state",
+            "hide fields",
+            "protect data",
+            "protect fields"
+          ]
+        },
+        {
+          "id": "access_control",
+          "label": "Explains controlled access",
+          "marks": 2,
+          "required": true,
+          "variants": [
+            "access control",
+            "control access",
+            "restrict access",
+            "private access",
+            "no direct outside access",
+            "outside class cannot access",
+            "only class can access"
+          ]
+        },
+        {
+          "id": "getter_setter",
+          "label": "Mentions getters or setters",
+          "marks": 1,
+          "required": false,
+          "variants": [
+            "getter",
+            "getters",
+            "setter",
+            "setters",
+            "methods to access",
+            "methods to update"
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "performance_confusion",
+          "label": "Claims encapsulation is mainly for speed",
+          "penalty": 1,
+          "variants": [
+            "for performance",
+            "faster execution",
+            "makes code faster"
+          ]
+        }
+      ],
+      "uncertain_if": {
+        "matched_required_concepts": 1,
+        "answer_tokens_below": 12
+      }
+    },
+    "ARRAY_ARRAYLIST_01": {
+      "match": {
+        "any": [
+          "arraylist",
+          "array list",
+          "array and arraylist",
+          "array and array list",
+          "dynamic size"
+        ]
+      },
+      "intent": "understand the difference between arrays and ArrayList",
+      "max_score": 5,
+      "concepts": [
+        {
+          "id": "array_fixed_size",
+          "label": "Says arrays have fixed size",
+          "marks": 2,
+          "required": true,
+          "variants": [
+            "fixed size",
+            "array size is fixed",
+            "cannot grow",
+            "cannot change size",
+            "size is decided"
+          ]
+        },
+        {
+          "id": "arraylist_dynamic_size",
+          "label": "Says ArrayList can grow or shrink",
+          "marks": 2,
+          "required": true,
+          "variants": [
+            "dynamic size",
+            "can grow",
+            "can shrink",
+            "resizable",
+            "resize automatically",
+            "flexible size"
+          ]
+        },
+        {
+          "id": "collection_methods",
+          "label": "Mentions collection methods",
+          "marks": 1,
+          "required": false,
+          "variants": [
+            "add method",
+            "remove method",
+            "get method",
+            "arraylist methods",
+            "collection methods"
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "both_same",
+          "label": "Says arrays and ArrayList are the same",
+          "penalty": 2,
+          "variants": [
+            "both are same",
+            "no difference",
+            "arraylist is exactly array"
+          ]
+        }
+      ],
+      "uncertain_if": {
+        "matched_required_concepts": 1,
+        "answer_tokens_below": 12
+      }
+    },
+    "PRIMITIVE_REFERENCE_01": {
+      "match": {
+        "any": [
+          "primitive and reference",
+          "primitive versus reference",
+          "primitive vs reference",
+          "reference data type",
+          "reference type",
+          "object reference"
+        ]
+      },
+      "intent": "understand primitive versus reference data types",
+      "max_score": 5,
+      "concepts": [
+        {
+          "id": "primitive_stores_value",
+          "label": "Says primitive stores the direct value",
+          "marks": 2,
+          "required": true,
+          "variants": [
+            "stores value",
+            "direct value",
+            "actual value",
+            "primitive value",
+            "int stores number"
+          ]
+        },
+        {
+          "id": "reference_points_to_object",
+          "label": "Says reference points to an object",
+          "marks": 2,
+          "required": true,
+          "variants": [
+            "stores reference",
+            "points to object",
+            "reference to object",
+            "address of object",
+            "object in heap"
+          ]
+        },
+        {
+          "id": "examples",
+          "label": "Gives valid examples",
+          "marks": 1,
+          "required": false,
+          "variants": [
+            "int",
+            "double",
+            "boolean",
+            "string",
+            "array",
+            "object"
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "all_objects",
+          "label": "Says primitives are objects",
+          "penalty": 2,
+          "variants": [
+            "primitive is object",
+            "primitives are objects",
+            "int is always object"
+          ]
+        }
+      ],
+      "uncertain_if": {
+        "matched_required_concepts": 1,
+        "answer_tokens_below": 12
+      }
+    },
+    "PASS_BY_VALUE_01": {
+      "match": {
+        "any": [
+          "pass by value",
+          "passed by value",
+          "primitive types by value",
+          "primitive is passed",
+          "copy of the variable",
+          "original variable",
+          "original value",
+          "original remains unchanged",
+          "original does not change"
+        ]
+      },
+      "intent": "understand Java primitive pass-by-value behavior",
+      "max_score": 5,
+      "concepts": [
+        {
+          "id": "passes_by_value",
+          "label": "Says Java passes primitive values by value",
+          "marks": 2,
+          "required": true,
+          "variants": [
+            "pass by value",
+            "passed by value",
+            "passes by value",
+            "primitive types by value",
+            "primitive passed by value",
+            "primitive values by value",
+            "job of a value"
+          ]
+        },
+        {
+          "id": "copy_is_passed",
+          "label": "Says the method receives a copy",
+          "marks": 1.5,
+          "required": true,
+          "variants": [
+            "copy is passed",
+            "copy of the variable",
+            "copy of variable",
+            "method gets a copy",
+            "method receives a copy",
+            "duplicate value",
+            "copied value"
+          ]
+        },
+        {
+          "id": "original_unchanged",
+          "label": "Says the original variable remains unchanged",
+          "marks": 1.5,
+          "required": true,
+          "variants": [
+            "original remains unchanged",
+            "original variable remains unchanged",
+            "original variable unchanged",
+            "original value remains unchanged",
+            "original does not change",
+            "original variable does not change",
+            "outside variable does not change",
+            "unchanged"
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "claims_original_changes",
+          "label": "Claims the original primitive changes",
+          "penalty": 3,
+          "variants": [
+            "original changes",
+            "original value changes",
+            "outside variable changes",
+            "primitive changes outside",
+            "method changes original"
+          ]
+        },
+        {
+          "id": "confuses_with_reference",
+          "label": "Confuses primitive pass-by-value with reference mutation",
+          "penalty": 2,
+          "variants": [
+            "passed by reference",
+            "pass by reference",
+            "reference is passed for primitive",
+            "same variable is passed"
+          ]
+        }
+      ],
+      "uncertain_if": {
+        "matched_required_concepts": 1,
+        "answer_tokens_below": 12
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+backend/tmp/
+backend/tools/
+
+# Logs
+*.log
+backend/uploads/
+*.safetensors
+*.onnx

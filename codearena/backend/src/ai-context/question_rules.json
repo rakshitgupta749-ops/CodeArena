@@ -1,0 +1,13 @@
+{
+  "global_rules": {
+    "must_be_javacentric": true,
+    "must_be_answerable": true,
+    "avoid_duplicates": true,
+    "avoid_semantic_duplicates": true,
+    "must_not_hallucinate_context": true,
+    "must_not_assess_english_communication": true,
+    "allow_casual_tone": true,
+    "allow_code_blocks": true,
+    "prefer_human_like_wording": true
+  }
+}

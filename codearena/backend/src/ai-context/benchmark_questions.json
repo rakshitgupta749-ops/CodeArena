@@ -1,0 +1,82 @@
+[
+  {
+    "qid": "B01",
+    "category": "Conceptual Understanding",
+    "difficulty": "basic",
+    "question": "What is the difference between primitive and reference data types in Java?",
+    "expected": ["value storage", "reference/object"],
+    "rubric": "Explains value vs reference semantics."
+  },
+  {
+    "qid": "B02",
+    "category": "Conceptual Understanding",
+    "difficulty": "basic",
+    "question": "What is the purpose of methods in Java?",
+    "expected": ["reusable behavior", "modularity"],
+    "rubric": "Explains behavior encapsulation."
+  },
+  {
+    "qid": "B03",
+    "category": "Conceptual Understanding",
+    "difficulty": "basic",
+    "question": "What is the difference between an array and an ArrayList?",
+    "expected": ["fixed size", "dynamic size"],
+    "rubric": "Explains structural difference."
+  },
+  {
+    "qid": "B04",
+    "category": "Conceptual Understanding",
+    "difficulty": "basic",
+    "question": "What is encapsulation and why is it used in Java?",
+    "expected": ["hide data", "control access"],
+    "rubric": "Explains data hiding and access control."
+  },
+  {
+    "qid": "B05",
+    "category": "Solution Articulation & Clarity",
+    "difficulty": "intermediate",
+    "question": "Explain step by step how you would find the largest number in an array.",
+    "expected": ["initialize max", "loop", "compare", "update max"],
+    "rubric": "Stepwise algorithm explanation."
+  },
+  {
+    "qid": "B06",
+    "category": "Solution Articulation & Clarity",
+    "difficulty": "intermediate",
+    "question": "How would you explain the flow of a method that calculates sum of array elements?",
+    "expected": ["initialize sum", "iterate", "add each value"],
+    "rubric": "Flow explanation."
+  },
+  {
+    "qid": "B07",
+    "category": "Analytical Thinking & Reasoning",
+    "difficulty": "intermediate",
+    "question": "Why would you use ArrayList instead of an array?",
+    "expected": ["dynamic size", "flexibility"],
+    "rubric": "Trade-off reasoning."
+  },
+  {
+    "qid": "B08",
+    "category": "Analytical Thinking & Reasoning",
+    "difficulty": "intermediate",
+    "question": "Why is exception handling better than ignoring errors?",
+    "expected": ["prevents crash", "control flow"],
+    "rubric": "Reasoning about robustness."
+  },
+  {
+    "qid": "B09",
+    "category": "Analytical Thinking & Reasoning",
+    "difficulty": "hard",
+    "question": "Why should logic be divided into multiple methods?",
+    "expected": ["modularity", "reusability", "testability"],
+    "rubric": "Design reasoning."
+  },
+  {
+    "qid": "B10",
+    "category": "Adaptability & Depth of Insight",
+    "difficulty": "hard",
+    "question": "If array size needs to grow dynamically, what would you use instead?",
+    "expected": ["ArrayList", "dynamic collection"],
+    "rubric": "Redesign under new constraint."
+  }
+]

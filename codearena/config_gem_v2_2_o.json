@@ -1,0 +1,80 @@
+{
+  "api": {
+    "url": "https://genailab.tcs.in/v1/chat/completions",
+    "key_env": "GROQ_API_KEY",
+    "model": "genailab-maas-gpt-4o",
+    "timeout_seconds": 60,
+    "retry_attempts": 2,
+    "user_agent": "JavaInterviewQuestionGenerator/2.1"
+  },
+  "generation": {
+    "temperature": 0.1,
+    "max_tokens": 5000,
+    "validation_retry_attempts": 2,
+    "max_context_regions": 16,
+    "max_context_chars": 9000
+  },
+  "validation": {
+    "expected_count": 5,
+    "expected_layout": [
+      {
+        "number": 1,
+        "level": "Basic"
+      },
+      {
+        "number": 2,
+        "level": "Basic"
+      },
+      {
+        "number": 3,
+        "level": "Intermediate"
+      },
+      {
+        "number": 4,
+        "level": "Intermediate"
+      },
+      {
+        "number": 5,
+        "level": "Advanced"
+      }
+    ],
+    "allowed_topics": [
+      "Class / Object / Constructor",
+      "Control Structures / Loops",
+      "Functions / Methods / Parameters / Return Type",
+      "Variables / Data Types",
+      "Exception Handling / Runtime Safety",
+      "Array / ArrayList",
+      "IS-A / HAS-A Relationship, Inheritance / Association"
+    ],
+    "anchor_min_lines": 1,
+    "anchor_max_lines": 12,
+    "repair_ambiguous_anchors": true,
+    "question_target_words": "28-55",
+    "question_max_words": 70,
+    "answer_total_marks": 5,
+    "benchmark_style_version": 2,
+    "banned_vocabulary_scope": "all_output_fields",
+    "sanitize_banned_vocabulary": true,
+    "banned_question_words": [
+      "implications",
+      "benefits",
+      "drawbacks",
+      "discuss",
+      "explain in detail",
+      "compare theoretically",
+      "advantages",
+      "consequences",
+      "pros",
+      "cons",
+      "utility",
+      "significance",
+      "positives",
+      "negatives"
+    ]
+  },
+  "prompts": {
+    "system": "You are a warm Java teacher for a Class 12 student, conducting a spoken code review. Return valid JSON only. Use the student's Java code regions to ask clear, personalized questions. Each question must be answerable by looking at its code_anchor and the question text. The student answers by speaking, so never ask for written code, exact syntax, or full implementations. Use simple, respectful language and focus on one learning objective per question. Every answer_criteria set must total exactly 5 marks.",
+    "user_template": "Original Programming Question:\n{{QUESTION}}\n\nSelected Java Code Regions from the student's submission:\n{{SUBMITTED_SOLUTION}}\n\nGenerate exactly 5 Java interview questions as one JSON object. Use only the code shown in these regions. Each code_anchor must be copied verbatim from the lines inside a single region; do not combine multiple regions in one anchor.\n\nDIFFICULTY ORDER:\n- Questions 1 and 2: Basic\n- Questions 3 and 4: Intermediate\n- Question 5: Advanced\n\nTOPIC SELECTION:\n- Choose one strongest topic for each question based on visible evidence in its code_anchor.\n- Allowed topic labels: Class / Object / Constructor; Control Structures / Loops; Functions / Methods / Parameters / Return Type; Variables / Data Types; Exception Handling / Runtime Safety; Array / ArrayList; IS-A / HAS-A Relationship, Inheritance / Association.\n- Do not force a topic when the anchor does not support it. Avoid repeating the exact same idea across questions.\n\nVOICE AND STYLE:\n- Speak as a supportive teacher looking at the student's own program. Openings may include: \"I see you have written...\", \"Looking at this part of your code...\", \"In your program, you used...\", \"Can you walk me through...\", \"In your own words...\", \"Suppose this value is missing...\".\n- Personalize with actual class, method, field, and variable names from the anchor. Keep questions between 28 and 55 words, never more than 70. Do not reveal the answer inside the question.\n\nCODE ANCHOR RULES:\n- code_anchor must be a single contiguous block of 1 to 12 complete lines copied exactly from one region.\n- Use the shortest block that still gives all context needed for the question. Every line in the anchor must be relevant.\n- If the question names a method, the anchor must come from inside that exact method. If the question asks what a method returns or calculates, include its signature and key body lines when they fit within 12 lines.\n- If the anchor is a guard line, the question must focus on that guard path only. Preserve all modifiers, punctuation, braces, indentation, calls, and names exactly. Never include line numbers or invented code.\n\nANCHOR\u2013QUESTION ALIGNMENT:\n- The question must only mention fields, methods, parameters, conditions, and behaviors visible in code_anchor. If you mention id, name, designation, and salary, all four must appear. If unsure, either expand the anchor within 12 lines or narrow the question.\n\nSPOKEN ANSWER EVALUATION:\n- expected_answer: 2 to 4 short sentences showing a complete spoken answer.\n- answer_criteria: 2 to 4 marking points whose marks sum to exactly 5. Each point describes one understandable idea, not exact wording.\n- evaluator_guide: briefly state what understanding to listen for and what partial answers should earn some marks.\n- scoring_guide must use full, partial, minimal, and zero categories.\n- evaluates: one short skill label such as Object storage, Condition comparison, Method return, Loop behavior, Two-pass logic, Null safety, or Data type choice.\n\nBANNED WORDING:\n- Do not use: implications, benefits, drawbacks, discuss, explain in detail, compare theoretically, advantages, consequences, pros, cons, utility, significance, positives, negatives.\n\nReturn only this JSON shape:\n{\n  \"questions\": [\n    {\n      \"number\": 1,\n      \"difficulty\": \"Basic\",\n      \"topic\": \"one allowed topic label supported by the code\",\n      \"code_anchor\": \"exact contiguous code copied from one region\",\n      \"question\": \"one clear personalized voice question\",\n      \"expected_answer\": \"2 to 4 simple spoken-answer sentences\",\n      \"answer_criteria\": [\n        { \"point\": \"first essential idea expressed in any clear wording\", \"marks\": 2 },\n        { \"point\": \"second essential idea expressed in any clear wording\", \"marks\": 2 },\n        { \"point\": \"supporting detail\", \"marks\": 1 }\n      ],\n      \"evaluator_guide\": \"what to listen for, acceptable spoken wording, and partial-credit guidance\",\n      \"scoring_guide\": {\n        \"full\": \"5 marks: all essential ideas are understood clearly\",\n        \"partial\": \"3-4 marks: main idea is correct but one detail is missing or unclear\",\n        \"minimal\": \"1-2 marks: some relevant understanding is shown but the answer is incomplete\",\n        \"zero\": \"0 marks: unrelated, no meaningful attempt, or technically opposite\"\n      },\n      \"evaluates\": \"short skill label\"\n    }\n  ]\n}"
+  }
+}

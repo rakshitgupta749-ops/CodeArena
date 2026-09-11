@@ -1,0 +1,2 @@
+# Local speech-to-text engine used by WHISPER_ENGINE=faster-whisper.
+faster-whisper==1.2.1

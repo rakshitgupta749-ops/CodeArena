@@ -1,0 +1,42 @@
+{
+  "project": "AI Trainee Evaluation",
+  "domain": "Java Fundamentals",
+  "dimensions": [
+    {
+      "name": "Conceptual Understanding",
+      "question_patterns": ["difference between X and Y", "what is X", "purpose of X"],
+      "difficulty_signals": {
+        "basic": ["single concept", "definition"],
+        "intermediate": ["compare", "two concepts"],
+        "hard": ["trade-off", "edge case", "adapt"]
+      }
+    },
+    {
+      "name": "Solution Articulation & Clarity",
+      "question_patterns": ["walk me through", "step-by-step", "explain flow"],
+      "difficulty_signals": {
+        "basic": ["one step"],
+        "intermediate": ["multi-step"],
+        "hard": ["debug or redesign"]
+      }
+    },
+    {
+      "name": "Analytical Thinking & Reasoning",
+      "question_patterns": ["why would you", "why choose", "why not"],
+      "difficulty_signals": {
+        "basic": ["single reason"],
+        "intermediate": ["compare options"],
+        "hard": ["justify under constraints", "trade-off"]
+      }
+    },
+    {
+      "name": "Adaptability & Depth of Insight",
+      "question_patterns": ["if X changes", "what would you use", "what happens if"],
+      "difficulty_signals": {
+        "basic": ["direct substitution"],
+        "intermediate": ["modify approach"],
+        "hard": ["redesign", "multiple constraints"]
+      }
+    }
+  ]
+}
