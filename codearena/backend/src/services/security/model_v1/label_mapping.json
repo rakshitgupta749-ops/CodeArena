@@ -1,0 +1,22 @@
+{
+  "label2id": {
+    "GENUINE_ABUSE": 0,
+    "PROMPT_INJECTION": 1,
+    "SOLUTION_REQUEST": 2,
+    "EXPLANATION_REQUEST": 3,
+    "NORMAL_TECHNICAL": 4,
+    "WEAK_TECHNICAL": 5,
+    "NONSENSE_RANDOM": 6,
+    "HARMLESS_UNRELATED": 7
+  },
+  "id2label": {
+    "0": "GENUINE_ABUSE",
+    "1": "PROMPT_INJECTION",
+    "2": "SOLUTION_REQUEST",
+    "3": "EXPLANATION_REQUEST",
+    "4": "NORMAL_TECHNICAL",
+    "5": "WEAK_TECHNICAL",
+    "6": "NONSENSE_RANDOM",
+    "7": "HARMLESS_UNRELATED"
+  }
+}

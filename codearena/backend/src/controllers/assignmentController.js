@@ -7,21 +7,46 @@ const Report = require("../models/Report");
 
 const assignToCandidate = async (req, res) => {
   try {
-    const { assessmentId, candidateId, dueDate } = req.body;
+    const { assessmentId, candidateId, dueDate, timeConfig, questionsConfig } = req.body;
 
     const candidate = await User.findOne({ _id: candidateId, role: "user", isActive: true });
     if (!candidate) {
       return res.status(404).json({ message: "Active candidate not found" });
     }
 
-    const assignment = await Assignment.create({
+    const payload = {
       assessment: assessmentId,
       candidate: candidateId,
       assignedBy: req.user._id,
       dueDate,
-    });
+    };
 
-    await assignment.populate("assessment", "title difficulty");
+    if (timeConfig) {
+      payload.timeConfig = {};
+      if (timeConfig.preCodeAssessmentTimer != null && timeConfig.preCodeAssessmentTimer !== "") {
+        payload.timeConfig.preCodeAssessmentTimer = Number(timeConfig.preCodeAssessmentTimer);
+      }
+      if (timeConfig.codingTestTimer != null && timeConfig.codingTestTimer !== "") {
+        payload.timeConfig.codingTestTimer = Number(timeConfig.codingTestTimer);
+      }
+      if (timeConfig.interviewTimer != null && timeConfig.interviewTimer !== "") {
+        payload.timeConfig.interviewTimer = Number(timeConfig.interviewTimer);
+      }
+    }
+
+    if (questionsConfig) {
+      payload.questionsConfig = {};
+      if (questionsConfig.preCodeMaxQuestions != null && questionsConfig.preCodeMaxQuestions !== "") {
+        payload.questionsConfig.preCodeMaxQuestions = Number(questionsConfig.preCodeMaxQuestions);
+      }
+      if (questionsConfig.postCodeMaxQuestions != null && questionsConfig.postCodeMaxQuestions !== "") {
+        payload.questionsConfig.postCodeMaxQuestions = Number(questionsConfig.postCodeMaxQuestions);
+      }
+    }
+
+    const assignment = await Assignment.create(payload);
+
+    await assignment.populate("assessment", "title difficulty timeConfig questionsConfig");
 
     res.status(201).json(assignment);
   } catch (error) {
@@ -42,9 +67,19 @@ const assignToBatch = async (req, res) => {
       return res.status(404).json({ message: "Active batch not found" });
     }
 
-    // Create individual assignments for all candidates in the batch
+    // Filter to only candidates that exist in the database
+    const existingCandidates = await User.find({
+      _id: { $in: batch.candidates },
+      role: "user",
+    }).select("_id");
+    const existingCandidateIds = new Set(existingCandidates.map((c) => c._id.toString()));
+
+    // Create individual assignments for all valid candidates in the batch
     const assignments = [];
     for (const candidateId of batch.candidates) {
+      if (!existingCandidateIds.has(candidateId.toString())) {
+        continue;
+      }
       try {
         const assignment = await Assignment.create({
           assessment: assessmentId,
@@ -88,7 +123,7 @@ const getAllAssignments = async (req, res) => {
   try {
     const assignments = await Assignment.find()
       .populate("assessment", "title difficulty")
-      .populate("candidate", "name email")
+      .populate("candidate", "name email isActive")
       .populate("batch", "name")
       .populate("assignedBy", "name")
       .sort({ assignedAt: -1 });
@@ -142,6 +177,105 @@ const deleteAssignment = async (req, res) => {
   }
 };
 
+const updateAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const assignment = await Assignment.findById(id);
+    if (!assignment) {
+      return res.status(404).json({ message: "Assignment not found" });
+    }
+
+    // Only allow editing if status is "Pending"
+    if (assignment.status !== "Pending") {
+      return res.status(400).json({ 
+        message: `Only assignments with 'Pending' status can be edited. This assignment is already ${assignment.status}.`
+      });
+    }
+
+    const { assessmentId, dueDate, timeConfig, questionsConfig } = req.body;
+
+    if (assessmentId) {
+      assignment.assessment = assessmentId;
+    }
+    if (dueDate !== undefined) {
+      assignment.dueDate = dueDate;
+    }
+
+    if (timeConfig) {
+      assignment.timeConfig = assignment.timeConfig || {};
+      if (timeConfig.preCodeAssessmentTimer !== undefined) {
+        if (timeConfig.preCodeAssessmentTimer === null || timeConfig.preCodeAssessmentTimer === "") {
+          assignment.timeConfig.preCodeAssessmentTimer = null;
+        } else {
+          const val = Number(timeConfig.preCodeAssessmentTimer);
+          if (isNaN(val) || val < 5 || val > 60) {
+            return res.status(400).json({ message: "Pre-code assessment timer must be between 5 and 60 minutes." });
+          }
+          assignment.timeConfig.preCodeAssessmentTimer = val;
+        }
+      }
+      if (timeConfig.codingTestTimer !== undefined) {
+        if (timeConfig.codingTestTimer === null || timeConfig.codingTestTimer === "") {
+          assignment.timeConfig.codingTestTimer = null;
+        } else {
+          const val = Number(timeConfig.codingTestTimer);
+          if (isNaN(val) || val < 5 || val > 60) {
+            return res.status(400).json({ message: "Coding test timer must be between 5 and 60 minutes." });
+          }
+          assignment.timeConfig.codingTestTimer = val;
+        }
+      }
+      if (timeConfig.interviewTimer !== undefined) {
+        if (timeConfig.interviewTimer === null || timeConfig.interviewTimer === "") {
+          assignment.timeConfig.interviewTimer = null;
+        } else {
+          const val = Number(timeConfig.interviewTimer);
+          if (isNaN(val) || val < 5 || val > 60) {
+            return res.status(400).json({ message: "Interview timer must be between 5 and 60 minutes." });
+          }
+          assignment.timeConfig.interviewTimer = val;
+        }
+      }
+    }
+
+    if (questionsConfig) {
+      assignment.questionsConfig = assignment.questionsConfig || {};
+      if (questionsConfig.preCodeMaxQuestions !== undefined) {
+        if (questionsConfig.preCodeMaxQuestions === null || questionsConfig.preCodeMaxQuestions === "") {
+          assignment.questionsConfig.preCodeMaxQuestions = null;
+        } else {
+          const val = Number(questionsConfig.preCodeMaxQuestions);
+          if (isNaN(val) || val < 2 || val > 15) {
+            return res.status(400).json({ message: "Pre-code maximum questions must be between 2 and 15." });
+          }
+          assignment.questionsConfig.preCodeMaxQuestions = val;
+        }
+      }
+      if (questionsConfig.postCodeMaxQuestions !== undefined) {
+        if (questionsConfig.postCodeMaxQuestions === null || questionsConfig.postCodeMaxQuestions === "") {
+          assignment.questionsConfig.postCodeMaxQuestions = null;
+        } else {
+          const val = Number(questionsConfig.postCodeMaxQuestions);
+          if (isNaN(val) || val < 2 || val > 15) {
+            return res.status(400).json({ message: "Post-code maximum questions must be between 2 and 15." });
+          }
+          assignment.questionsConfig.postCodeMaxQuestions = val;
+        }
+      }
+    }
+
+    await assignment.save();
+    await assignment.populate("assessment", "title difficulty timeConfig questionsConfig");
+    await assignment.populate("candidate", "name email isActive");
+    await assignment.populate("batch", "name");
+    await assignment.populate("assignedBy", "name");
+
+    res.json(assignment);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   assignToCandidate,
   assignToBatch,
@@ -149,4 +283,5 @@ module.exports = {
   getAllAssignments,
   getMyAssignments,
   deleteAssignment,
+  updateAssignment,
 };

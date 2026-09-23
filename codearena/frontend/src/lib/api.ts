@@ -129,7 +129,17 @@ export interface Problem {
   boilerplate: string;
   isActive: boolean;
   createdAt: string;
+  createdBy?: AuthUser | null;
   submissionCount?: number;
+  timeConfig?: {
+    preCodeAssessmentTimer?: number;
+    codingTestTimer?: number;
+    interviewTimer?: number;
+  };
+  questionsConfig?: {
+    preCodeMaxQuestions?: number;
+    postCodeMaxQuestions?: number;
+  };
 }
 
 export interface Submission {
@@ -372,4 +382,114 @@ export interface Assignment {
   assignedAt: string;
   dueDate: string | null;
   status: "Pending" | "In Progress" | "Completed";
+  timeConfig?: {
+    preCodeAssessmentTimer?: number;
+    codingTestTimer?: number;
+    interviewTimer?: number;
+  };
+  questionsConfig?: {
+    preCodeMaxQuestions?: number;
+    postCodeMaxQuestions?: number;
+  };
 }
+
+export interface AssessmentDashboardItem {
+  _id: string;
+  title: string;
+  difficulty: Difficulty;
+  description: string;
+  isActive: boolean;
+  createdAt: string;
+  createdBy?: {
+    _id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
+  totalTaken: number;
+  totalCompleted: number;
+  totalPending: number;
+  precoding: {
+    total: number;
+    passed: number;
+    failed: number;
+    inProgress: number;
+    passRate: number;
+  };
+  coding: {
+    total: number;
+    passed: number;
+    failed: number;
+    passRate: number;
+  };
+  postcoding: {
+    total: number;
+    completed: number;
+    inProgress: number;
+    passed: number;
+    failed: number;
+    passRate: number;
+    avgScore: number;
+  };
+  overall: {
+    passPercentage: number;
+    failPercentage: number;
+    totalPassed: number;
+    totalFailed: number;
+  };
+}
+
+export interface AssessmentDashboardResponse {
+  assessments: AssessmentDashboardItem[];
+  total: number;
+  page: number;
+  pages: number;
+}
+
+export interface AssessmentCandidateItem {
+  candidate: {
+    _id: string;
+    name: string;
+    email: string;
+    isActive: boolean;
+    role: string;
+  };
+  batch: string | null;
+  assignment: {
+    _id: string;
+    assignedAt: string;
+    dueDate: string | null;
+    status: string;
+  } | null;
+  precoding: {
+    status: string;
+    score: number | null;
+    completedAt: string | null;
+  };
+  coding: {
+    status: string;
+    passed: boolean;
+    score: number | null;
+    attempts: number;
+  };
+  postcoding: {
+    _id?: string;
+    status: string;
+    score: number | null;
+    passed: boolean;
+    completedAt: string | null;
+  };
+  overallStatus: "Completed" | "In Progress" | "Pending";
+  isCompleted: boolean;
+  reportId: string | null;
+  reportAvailable: boolean;
+}
+
+export interface AssessmentCandidatesResponse {
+  assessment: Problem;
+  candidates: AssessmentCandidateItem[];
+  total: number;
+  completedCount: number;
+  pendingCount: number;
+}
+

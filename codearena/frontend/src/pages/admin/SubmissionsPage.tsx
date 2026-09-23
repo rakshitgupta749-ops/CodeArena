@@ -46,10 +46,15 @@ export function SubmissionsPage() {
   }, []);
 
   const filtered = submissions.filter((sub) => {
-    const matchesSearch = sub.user?.name?.toLowerCase().includes(search.toLowerCase());
+    const q = search.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      (sub.user?.name && sub.user.name.toLowerCase().includes(q)) ||
+      (sub.user?.email && sub.user.email.toLowerCase().includes(q)) ||
+      (sub.problem?.title && sub.problem.title.toLowerCase().includes(q));
     const matchesProblem = problemFilter === "all" || sub.problem?._id === problemFilter;
     const matchesStatus = statusFilter === "all" || sub.status === statusFilter;
-    return matchesSearch && matchesProblem && matchesStatus;
+    return Boolean(matchesSearch && matchesProblem && matchesStatus);
   });
 
   if (loading) {
@@ -121,8 +126,8 @@ export function SubmissionsPage() {
             <TableBody>
               {filtered.map((sub) => (
                 <TableRow key={sub._id} className="cursor-pointer hover:bg-muted/50" id={`sub-row-${sub._id}`} onClick={() => setSelectedSubmission(sub)}>
-                  <TableCell className="font-medium">{sub.user?.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{sub.problem?.title}</TableCell>
+                  <TableCell className="font-medium">{sub.user?.name || "Unknown Candidate"}</TableCell>
+                  <TableCell className="text-muted-foreground">{sub.problem?.title || "Unknown Problem"}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs font-mono">
                       {sub.language}

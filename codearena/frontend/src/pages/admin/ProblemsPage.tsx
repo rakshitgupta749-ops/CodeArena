@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Loader2 } from "lucide-react";
+import { Plus, Search, Loader2, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { api, type Problem, type Difficulty } from "@/lib/api";
 
@@ -51,6 +51,18 @@ export function ProblemsPage() {
       );
     } catch (err) {
       console.error("Failed to toggle problem:", err);
+    }
+  };
+
+  const handleDeleteProblem = async (e: React.MouseEvent, id: string, title: string) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete problem "${title}"? This action cannot be undone.`)) return;
+
+    try {
+      await api.delete(`/problems/${id}`);
+      setProblems((prev) => prev.filter((p) => p._id !== id));
+    } catch (err: any) {
+      alert(err.message || "Failed to delete problem");
     }
   };
 
@@ -110,9 +122,11 @@ export function ProblemsPage() {
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Difficulty</TableHead>
+                <TableHead>Created By</TableHead>
                 <TableHead className="text-center">Submissions</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -136,6 +150,20 @@ export function ProblemsPage() {
                       {problem.difficulty}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {problem.createdBy ? (
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium text-foreground">
+                          {problem.createdBy.name}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground capitalize">
+                          {problem.createdBy.role}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Admin / System</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-center text-muted-foreground font-mono text-sm">{problem.submissionCount || 0}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {new Date(problem.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -153,11 +181,22 @@ export function ProblemsPage() {
                       </span>
                     </div>
                   </TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      title="Delete Problem"
+                      onClick={(e) => handleDeleteProblem(e, problem._id, problem.title)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {filteredProblems.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                     No problems found.
                   </TableCell>
                 </TableRow>

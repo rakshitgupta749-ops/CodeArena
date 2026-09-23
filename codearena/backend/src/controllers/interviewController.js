@@ -1,4 +1,6 @@
 const InterviewSession = require("../models/InterviewSession");
+const Report = require("../models/Report");
+const Setting = require("../models/Setting");
 const ReportGenerator =
     require("../services/reportGenerator");
 const Submission = require("../models/Submission");
@@ -28,6 +30,7 @@ const {
   UNPROFESSIONAL_WARNING_LIMIT,
 } = require("../services/interviewEngine");
 const { rephraseQuestion } = require("../services/llmClient");
+const { interviewGraph } = require("../services/langGraphInterviewEngine");
 
 const AUDIO_ANSWER_ROOT = path.join(__dirname, "..", "..", "uploads", "interview-answers");
 const EXPECTED_INTERVIEW_QUESTION_COUNT = 10;
@@ -429,7 +432,31 @@ const startInterview = async (req, res) => {
       });
     }
 
-    session.questions = generationResult.questions;
+    let maxPostCodeQuestions = 10;
+    try {
+      const assignment = await Assignment.findOne({ candidate: session.user, assessment: session.problem });
+      if (assignment?.questionsConfig?.postCodeMaxQuestions) {
+        maxPostCodeQuestions = assignment.questionsConfig.postCodeMaxQuestions;
+      } else {
+        const problemDoc = await Problem.findById(session.problem);
+        if (problemDoc?.questionsConfig?.postCodeMaxQuestions) {
+          maxPostCodeQuestions = problemDoc.questionsConfig.postCodeMaxQuestions;
+        } else {
+          const setting = await Setting.findOne();
+          maxPostCodeQuestions = setting?.postCodeMaxQuestions || 10;
+        }
+      }
+    } catch (err) {
+      const setting = await Setting.findOne();
+      maxPostCodeQuestions = setting?.postCodeMaxQuestions || 10;
+    }
+
+    let finalQuestions = generationResult.questions;
+    if (finalQuestions.length > maxPostCodeQuestions) {
+      finalQuestions = finalQuestions.slice(0, maxPostCodeQuestions);
+    }
+
+    session.questions = finalQuestions;
     session.counts = generationResult.counts;
     session.conceptExtraction = generationResult.conceptExtraction;
     const interviewState = initialiseState({
@@ -458,36 +485,15 @@ const startInterview = async (req, res) => {
             generationResult.conceptExtraction
         );
 
-session.interviewState = interviewState;
-session.candidateProfile =
-    interviewState.candidateProfile;
-
-session.conceptGraph =
-    interviewState.conceptGraph;
-
-session.evidenceStore =
-    interviewState.evidenceStore;
-
-session.analytics =
-    interviewState.analytics || {};
-    session.status = "in_progress";
-    session.candidateProfile =
-    session.candidateProfile;
-
-    session.candidateProfile =
-    interviewState.candidateProfile;
-
-    session.conceptGraph =
-        interviewState.conceptGraph;
-
-    session.evidenceStore =
-        interviewState.evidenceStore;
-
-    session.analytics =
-        interviewState.analytics || {};
-
-    session.lastActivityAt =
-        new Date();
+    Object.assign(session, {
+      interviewState,
+      candidateProfile: interviewState.candidateProfile,
+      conceptGraph: interviewState.conceptGraph,
+      evidenceStore: interviewState.evidenceStore,
+      analytics: interviewState.analytics || {},
+      status: "in_progress",
+      lastActivityAt: new Date()
+    });
     await session.save();
 
     res.status(201).json(toClientInterviewSession(session));
@@ -530,55 +536,11 @@ const submitAnswer = async (req, res) => {
       return res.status(400).json({ message: "Session is not in progress." });
     }
 
-    let state = session.interviewState;
-
-if (!state) {
-
-    state = initialiseState({
-
-        submission: {},
-
-        questions: session.questions
-
-    });
-
-}
-
-if (!state.candidateProfile) {
-
-    state.candidateProfile =
-
-        session.candidateProfile ||
-
-        CandidateProfile.createProfile();
-
-}
-
-
-
-if (!state.evidenceStore) {
-
-    state.evidenceStore =
-
-        session.evidenceStore ||
-
-        EvidenceEngine.createStore();
-
-}
-
-
-if (!state.conceptGraph) {
-
-    state.conceptGraph =
-    ConceptGraph.createGraph(
-        state.conceptExtraction ||
-        session.conceptExtraction ||
-        {}
-    );
-
-}
-
-session.interviewState = state;
+    let state = session.interviewState || initialiseState({ submission: {}, questions: session.questions });
+    state.candidateProfile = state.candidateProfile || session.candidateProfile || CandidateProfile.createProfile();
+    state.evidenceStore = state.evidenceStore || session.evidenceStore || EvidenceEngine.createStore();
+    state.conceptGraph = state.conceptGraph || ConceptGraph.createGraph(state.conceptExtraction || session.conceptExtraction || {});
+    session.interviewState = state;
     if (state.terminated) {
       return res.status(403).json({ message: "This interview has ended because the conduct warning limit was reached." });
     }
@@ -592,350 +554,55 @@ session.interviewState = state;
       return res.status(404).json({ message: "Question not found in session." });
     }
 
-    const classification = await classifyResponse(answer, questionObj);
-    if (classification.rephrase) {
-      const currentCount = state.rephraseCount?.[qid] || 0;
-      if (currentCount >= 2) {
+    const initialState = {
+      answer,
+      questionObj,
+      session,
+      classification: null,
+      evaluation: null,
+      outcome: null,
+      contradictions: [],
+      result: null
+    };
+
+    const finalState = await interviewGraph.invoke(initialState);
+    const updatedSession = finalState.session;
+    const result = finalState.result;
+
+    Object.assign(session, {
+      interviewState: updatedSession.interviewState,
+      candidateProfile: updatedSession.interviewState.candidateProfile,
+      conceptGraph: updatedSession.interviewState.conceptGraph,
+      evidenceStore: updatedSession.interviewState.evidenceStore,
+    });
+
+    if (result && !result.advance) {
+        session.markModified("interviewState");
+        await session.save();
         return res.json({
-          acknowledged: false,
-          advance: false,
-          classification: "RephraseLimitReached",
-          message: "I've rephrased this as much as I can. Please try to answer the question to the best of your ability, or type Skip to move on.",
-          interviewState: toClientInterviewSession(session).interviewState,
+            ...result,
+            interviewState: toClientInterviewSession(session).interviewState,
         });
-      }
-      
-      state.rephraseCount = state.rephraseCount || {};
-      state.rephraseCount[qid] = currentCount + 1;
-      session.interviewState = state;
-      session.markModified("interviewState");
-      await session.save();
-      
-      const rephrasedText = await rephraseQuestion(questionObj.question);
-      
-      const isFallback = rephrasedText.startsWith("I'm having trouble");
-      return res.json({
-        acknowledged: false,
-        advance: false,
-        classification: "Rephrased",
-        message: isFallback ? rephrasedText : `Here's a simpler version of the question:\n\n"${rephrasedText}"\n\nTake your time to answer or type Skip.`,
-        interviewState: toClientInterviewSession(session).interviewState,
-      });
     }
 
-    if (classification.blocking) {
-      applyWarning(state, classification.warning);
-
-      session.interviewState = state;
-      session.candidateProfile = state.candidateProfile;
-      session.conceptGraph = state.conceptGraph;
-      session.evidenceStore = state.evidenceStore;
-      session.analytics = state.analytics;
-      session.lastActivityAt = new Date();
-
-      session.markModified("interviewState");
-      await session.save();
-      
-      let finalMessage = classification.reason;
-      if (state.terminated) {
-         finalMessage = state.terminationReason || "The interview has ended because the conduct warning limit was reached.";
-      } else if (["abusive_language", "prompt_injection"].includes(classification.warning)) {
-         finalMessage = `⚠️ Unprofessional behaviour detected.\nWarning ${state.unprofessionalWarningCount} of ${UNPROFESSIONAL_WARNING_LIMIT}.\n${classification.reason}\n${UNPROFESSIONAL_WARNING_LIMIT - (state.unprofessionalWarningCount || 0)} warning(s) remaining.`;
-      } else if (["irrelevant_answer", "gibberish"].includes(classification.warning)) {
-         finalMessage = `⚠️ Irrelevant response detected.\nWarning ${state.irrelevantWarningCount} of ${IRRELEVANT_WARNING_LIMIT}.\n${classification.reason}\n${IRRELEVANT_WARNING_LIMIT - (state.irrelevantWarningCount || 0)} warning(s) remaining.`;
-      }
-
-      return res.json({
-        acknowledged: false,
-        advance: false,
-        complete: state.terminated,
-        classification: state.terminated ? "Terminated" : classification.classification,
-        message: finalMessage,
-        interviewState: toClientInterviewSession(session).interviewState,
-      });
-    }
-
-    const evaluation = classification.skip
-      ? {
-          final_score: 0,
-          flag: "SKIPPED",
-          gate_decision: "SKIPPED",
-          gate_reason: "Candidate explicitly skipped this question.",
-          confidence: 1,
-          best_breakdown: {},
-          teacher_feedback: { what_went_well: [], what_was_missing: ["Question skipped."], better_answer: "" },
-        }
-      : await evaluateAnswer({
-          qid: questionObj.qid,
-          question: questionObj.question,
-          rubric: `${buildEvaluationRubric(questionObj)}\n\nSubmitted code excerpt:\n${questionObj.code_snippet || state.candidateCode || "No code submitted."}`,
-          answer: answer,
-        });
-
-    const contradictions =
-    detectContradictions(
-        state,
-        questionObj,
-        answer
-    );
-
-const outcome =
-    recordEvaluation(
-        state,
-        questionObj,
-        answer,
-        evaluation,
-        classification.skip
-    );
-
-    CandidateProfile.recordAnswer(
-
-    state.candidateProfile,
-
-    {
-
-        questionId: questionObj.qid,
-
-        classification: outcome,
-
-        score:
-
-            Number(
-
-                evaluation.final_score || 0
-
-            ) * 20,
-
-        concepts:
-
-            questionObj.concept_tags ||
-
-            questionObj.source_concepts ||
-
-            [],
-
-        relevanceScore: 100,
-
-        timestamp: new Date()
-
-    }
-
-);
-
-  for (const contradiction of contradictions) {
-
-    CandidateProfile.recordContradiction(
-
-        state.candidateProfile,
-
-        contradiction
-
-    );
-
-    }
-
-    const competency =
-      Object.entries(
-          evaluation.competencies || {}
-      ).sort((a, b) => b[1] - a[1])[0]?.[0] || "technicalKnowledge";
-
-    const evidenceId =
-
-EvidenceEngine.record(
-
-    state.evidenceStore,
-
-    {
-
-        questionId:
-
-            questionObj.qid,
-
-        competency,
-
-        concept:
-
-            (
-
-                questionObj.concept_tags ||
-
-                questionObj.source_concepts ||
-
-                []
-
-            )[0] || "General",
-
-        candidateAnswer:
-
-            answer,
-
-        evaluatorScore:
-
-            Number(
-
-                evaluation.final_score || 0
-
-            ) * 20,
-
-        confidence:
-
-            Number(
-
-                evaluation.confidence || 0
-
-            ) * 100,
-
-        classification:
-
-            outcome,
-
-        reason:
-
-          evaluation.evidence?.reasoning ||
-
-          evaluation.reasoning ||
-
-          "",
-        codeEvidence:
-
-          evaluation.evidence?.codeEvidence ||
-
-          [],
-
-        tags:
-
-          evaluation.evidence?.concepts ||
-
-          questionObj.concept_tags ||
-
-          questionObj.source_concepts ||
-
-          []
-
-    }
-
-);
-
-CandidateProfile.recordEvidenceReference(
-
-    state.candidateProfile,
-
-    evidenceId
-
-);
-
-    const concepts =
-
-questionObj.concept_tags ||
-
-questionObj.source_concepts ||
-
-[];
-
-for (const concept of concepts) {
-
-    ConceptGraph.recordAttempt(
-
-        state.conceptGraph,
-
-        concept,
-
-        {
-
-            score:
-
-                Number(
-
-                    evaluation.final_score || 0
-
-                ) * 20,
-
-            correct:
-
-                outcome === "Correct",
-
-            evidence: {
-
-                questionId:
-
-                    questionObj.qid,
-
-                answer,
-
-                score:
-
-                    Number(
-
-                        evaluation.final_score || 0
-
-                    ) * 20
-
-            }
-
-        }
-
-    );
-
-}   
-
-    CandidateProfile.calculateConfidence(
-
-    state.candidateProfile
-
-);
-
-    state.confidence = state.candidateProfile.confidence;
-
-    const followingQuestion = nextQuestion(
-    state,
-    session.questions,
-    outcome
-);
+    CandidateProfile.calculateConfidence(session.candidateProfile);
+    session.interviewState.confidence = session.candidateProfile.confidence;
 
     upsertSessionAnswer(session, {
       qid,
       answer,
-      evaluation,
+      evaluation: finalState.evaluation,
     });
-    state.lastUpdated = new Date();
 
-state.analytics = {
-
-      confidence:
-          state.candidateProfile.confidence,
-
-      competencySummary:
-          CandidateProfile.getCompetencySummary(
-              state.candidateProfile
-          ),
-
-      evidenceSummary:
-          EvidenceEngine.summary(
-              state.evidenceStore
-          )
-
+    session.analytics = {
+      confidence: session.candidateProfile.confidence,
+      competencySummary: CandidateProfile.getCompetencySummary(session.candidateProfile),
+      evidenceSummary: EvidenceEngine.summary(session.evidenceStore)
     };
+
+    session.lastActivityAt = new Date();
+    session.interviewState.lastUpdated = new Date();
     session.markModified("interviewState");
-    state.lastUpdated = new Date();
-    session.interviewState = state;
-
-    session.candidateProfile =
-        state.candidateProfile;
-
-    session.conceptGraph =
-        state.conceptGraph;
-
-    session.evidenceStore =
-        state.evidenceStore;
-
-    session.analytics =
-        state.analytics;
-
-    session.adaptiveLog =
-        state.adaptiveLog;
-
-    session.lastActivityAt =
-        new Date();
     await session.save();
 
     const ACKNOWLEDGMENTS = [
@@ -945,17 +612,21 @@ state.analytics = {
       "Thanks for your answer.",
       "Noted."
     ];
-    const randomAck = classification.skip ? "Okay, skipping that one." : ACKNOWLEDGMENTS[Math.floor(Math.random() * ACKNOWLEDGMENTS.length)];
+    const randomAck = finalState.classification.skip ? "Okay, skipping that one." : ACKNOWLEDGMENTS[Math.floor(Math.random() * ACKNOWLEDGMENTS.length)];
+
+    const followingQuestion = (session.interviewState.currentQuestionId && !result.complete) 
+        ? session.questions.find((q) => q.qid === session.interviewState.currentQuestionId) 
+        : null;
 
     res.json({
       acknowledgment: randomAck,
-      evaluation: toClientEvaluation(evaluation),
+      evaluation: toClientEvaluation(finalState.evaluation),
       acknowledged: true,
       advance: true,
-      classification: classification.skip ? "Skip" : outcome,
-      contradictions,
+      classification: finalState.classification.skip ? "Skip" : finalState.outcome,
+      contradictions: finalState.contradictions || [],
       nextQuestion: followingQuestion ? toClientInterviewSession({ questions: [followingQuestion], answers: [] }).questions[0] : null,
-      complete: !followingQuestion,
+      complete: result.complete,
       interviewState: toClientInterviewSession(session).interviewState,
     });
   } catch (error) {
@@ -1164,7 +835,8 @@ const completeInterview = async (req, res) => {
     session.interviewPassed = interviewScore >= 50;
     session.overallPassed = session.codingPassed && session.interviewPassed;
     
-    session.overallScore =
+
+    session.overallScore =
       scoredAnswers > 0
         ? Math.round((codingScore * 0.3) + (interviewScore * 0.7))
         : null;
@@ -1331,6 +1003,42 @@ const completeInterview = async (req, res) => {
       { candidate: req.user._id, assessment: session.problem },
       { status: "Completed" }
     );
+
+    // Create or update the formal Report document in the reports collection
+    try {
+      await Report.findOneAndUpdate(
+        { interviewSession: session._id },
+        {
+          user: session.user,
+          interviewSession: session._id,
+          reportType: "Interview Evaluation Report",
+          version: "2.0",
+          generatedBy: req.user._id,
+          reportData: {
+            overallScore: session.overallScore || 0,
+            recommendation: (session.overallScore || 0) >= 80 ? "Strong Hire" : (session.overallScore || 0) >= 60 ? "Hire" : "Needs Review",
+            executiveSummary: session.feedback || "Interview completed successfully.",
+            strengths: session.candidateReport?.strengths || "Strong analytical and technical foundation.",
+            weaknesses: session.candidateReport?.weaknesses || "Areas for development identified during interview.",
+            competencies: recruiterReport?.competencies || {
+              scores: {
+                problemSolving: session.codingScore || 0,
+                technicalDepth: session.interviewScore || 0,
+                codeQuality: session.codingScore || 0,
+                communication: session.interviewScore || 0,
+              }
+            },
+            metrics: recruiterReport?.metrics || {},
+            candidateProfile: recruiterReport?.candidateProfile || {},
+          },
+          generatedAt: new Date(),
+        },
+        { upsert: true, returnDocument: "after" }
+      );
+      console.log(`[CompleteInterview] Successfully saved Report document for session ${session._id}`);
+    } catch (reportSaveErr) {
+      console.error("[CompleteInterview] Error saving Report document:", reportSaveErr.message);
+    }
 
     const response =toClientInterviewSession(session);
 

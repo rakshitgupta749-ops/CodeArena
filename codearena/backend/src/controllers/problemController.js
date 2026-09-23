@@ -16,6 +16,7 @@ const getProblems = async (req, res) => {
 
     const problems = await Problem.find(query)
       .populate("submissionCount")
+      .populate("createdBy", "name email role")
       .sort({ createdAt: -1 });
 
     if (req.user.role === "user") {
@@ -37,9 +38,9 @@ const getProblems = async (req, res) => {
 // GET /api/problems/:id
 const getProblem = async (req, res) => {
   try {
-    const problem = await Problem.findById(req.params.id).populate(
-      "submissionCount"
-    );
+    const problem = await Problem.findById(req.params.id)
+      .populate("submissionCount")
+      .populate("createdBy", "name email role");
 
     if (!problem) {
       return res.status(404).json({ message: "Problem not found" });
@@ -76,7 +77,10 @@ const getProblem = async (req, res) => {
 // POST /api/problems (admin only)
 const createProblem = async (req, res) => {
   try {
-    const problem = await Problem.create(req.body);
+    const problem = await Problem.create({
+      ...req.body,
+      createdBy: req.user?._id || null,
+    });
     res.status(201).json(problem);
   } catch (error) {
     res.status(500).json({ message: error.message });

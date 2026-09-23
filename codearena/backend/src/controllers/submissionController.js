@@ -2,7 +2,9 @@ const Problem = require("../models/Problem");
 const Submission = require("../models/Submission");
 const Assignment = require("../models/Assignment");
 const InterviewSession = require("../models/InterviewSession");
-const { executeJava } = require("../services/javaExecutor");
+const { executeCode } = require("../services/codeExecutor");
+const { codeExecutionQueue, queueEvents } = require("../queues/codeExecutionQueue");
+// const { executeJava } = require("../services/javaExecutor");
 
 // GET /api/submissions (admin only)
 const getSubmissions = async (req, res) => {
@@ -86,7 +88,17 @@ const runCode = async (req, res) => {
     const visibleTestCases = problem.testCases.filter(tc => !tc.isHidden);
 
     // Run against VISIBLE test cases only
-    const result = await executeJava(code, visibleTestCases);
+    const language = req.body.language || "java";
+    
+    // Add job to queue and wait for completion
+    const job = await codeExecutionQueue.add("runCode", {
+      code,
+      testCases: visibleTestCases,
+      language
+    });
+    const result = await job.waitUntilFinished(queueEvents);
+
+    // const result = await executeJava(code, visibleTestCases);
     const sanitized = sanitizeResults(result.results, { testCases: visibleTestCases }, req.user.role);
 
     res.json({
@@ -132,7 +144,16 @@ const submitCode = async (req, res) => {
     }
 
     // Run against all test cases
-    const result = await executeJava(code, problem.testCases);
+    const language = req.body.language || "java";
+
+    // Add job to queue and wait for completion
+    const job = await codeExecutionQueue.add("submitCode", {
+      code,
+      testCases: problem.testCases,
+      language
+    });
+    const result = await job.waitUntilFinished(queueEvents);
+    // const result = await executeJava(code, problem.testCases);
 
     // Save hidden flag alongside results
     const resultsWithHiddenFlag = result.results.map((r, i) => ({
@@ -145,7 +166,7 @@ const submitCode = async (req, res) => {
       user: req.user._id,
       problem: problemId,
       code,
-      language: "Java",
+      language: req.body.language || "java",
       status: result.status,
       executionTime: result.executionTime,
       testCaseResults: resultsWithHiddenFlag,

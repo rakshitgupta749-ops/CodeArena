@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, FileText, CheckCircle2, Activity, BarChart3, TrendingUp, HelpCircle } from "lucide-react";
+import { Users, CheckCircle2, Activity, BarChart3, TrendingUp, HelpCircle } from "lucide-react";
 
 export function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<any>(null);
@@ -166,44 +166,6 @@ export function AnalyticsPage() {
                   Not enough data collected yet.
                 </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Response Classifications</CardTitle>
-            <CardDescription>AI evaluation breakdown of candidate answers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {performance?.classificationDistribution?.length > 0 ? (
-                performance.classificationDistribution.map((item: any) => (
-                  <div key={item.name} className="flex items-center justify-between py-2 border-b last:border-0">
-                    <span className="capitalize">{item.name.replace(/_/g, ' ')}</span>
-                    <span className="font-medium">{item.value} answers</span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground text-center py-4">No classification data available</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Adaptive Insights</CardTitle>
-            <CardDescription>Recent insights from the adaptive AI engine</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="py-8 text-center space-y-2">
-              <FileText className="h-8 w-8 text-muted-foreground mx-auto" />
-              <p className="text-sm text-muted-foreground">
-                More interview sessions are required to generate meaningful adaptive insights and priority patterns.
-              </p>
             </div>
           </CardContent>
         </Card>

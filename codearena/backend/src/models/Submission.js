@@ -27,6 +27,7 @@ const submissionSchema = new mongoose.Schema({
       "Runtime Error",
       "Compilation Error",
       "Time Limit Exceeded",
+      "System Error",
       "Pending",
     ],
     default: "Pending",

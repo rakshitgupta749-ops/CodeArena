@@ -219,7 +219,7 @@ export function CodingTestPage() {
           // Normal flow: fetch problem and settings
           Promise.all([
             api.get<Problem>(`/problems/${id}`),
-            api.get("/settings")
+            api.get(`/settings?problemId=${id}`)
           ])
             .then(([probData, settingsData]: [any, any]) => {
               setProblem(probData);

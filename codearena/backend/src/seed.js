@@ -5,6 +5,12 @@ const path = require("path");
 const User = require("./models/User");
 const Problem = require("./models/Problem");
 const StaticProblem = require("./models/StaticProblem");
+const Assignment = require("./models/Assignment");
+const Batch = require("./models/Batch");
+const InterviewSession = require("./models/InterviewSession");
+const Submission = require("./models/Submission");
+const PreCodeAssessment = require("./models/PreCodeAssessment");
+const Report = require("./models/Report");
 
 const javaBoilerplate = `import java.util.*;
 
@@ -19,6 +25,8 @@ public class Solution {
 
 const users = [
   { name: "Admin User", email: "admin@code.io", password: "admin123", role: "admin" },
+  { name: "Dr. Robert Smith", email: "faculty@code.io", password: "faculty123", role: "faculty" },
+  { name: "Prof. Sarah Connor", email: "sarah.faculty@code.io", password: "faculty123", role: "faculty" },
   { name: "Alice Johnson", email: "user@code.io", password: "user123", role: "user" },
   { name: "Bob Smith", email: "bob@code.io", password: "user123", role: "user" },
   { name: "Charlie Davis", email: "charlie@code.io", password: "user123", role: "user" },
@@ -254,15 +262,198 @@ async function seed() {
     // Clear existing data
     await User.deleteMany({});
     await Problem.deleteMany({});
+    await Assignment.deleteMany({});
+    await Batch.deleteMany({});
+    await InterviewSession.deleteMany({});
+    await PreCodeAssessment.deleteMany({});
+    await Submission.deleteMany({});
+    await Report.deleteMany({});
     console.log("Cleared existing data");
 
     // Create users
     const createdUsers = await User.create(users);
     console.log(`Created ${createdUsers.length} users`);
 
+    const adminUser = createdUsers.find(u => u.email === "admin@code.io");
+    const faculty1 = createdUsers.find(u => u.email === "faculty@code.io");
+    const faculty2 = createdUsers.find(u => u.email === "sarah.faculty@code.io");
+    const alice = createdUsers.find(u => u.email === "user@code.io");
+    const bob = createdUsers.find(u => u.email === "bob@code.io");
+    const charlie = createdUsers.find(u => u.email === "charlie@code.io");
+    const diana = createdUsers.find(u => u.email === "diana@code.io");
+
+    // Assign faculty to problems
+    const problemsWithCreator = problems.map((p, idx) => ({
+      ...p,
+      createdBy: idx % 2 === 0 ? faculty1._id : faculty2._id,
+    }));
+
     // Create problems
-    const createdProblems = await Problem.create(problems);
-    console.log(`Created ${createdProblems.length} problems`);
+    const createdProblems = await Problem.create(problemsWithCreator);
+    console.log(`Created ${createdProblems.length} problems with faculty creators`);
+
+    // Create a batch
+    const batch = await Batch.create({
+      name: "Batch 2026 - CS Alpha",
+      description: "Core algorithms and systems track",
+      candidates: [alice._id, bob._id, charlie._id, diana._id],
+      createdBy: adminUser._id,
+    });
+    console.log("Created sample batch:", batch.name);
+
+    // Create assignments for Two Sum (problem 0) and FizzBuzz (problem 1)
+    const twoSum = createdProblems[0];
+    const fizzBuzz = createdProblems[1];
+
+    await Assignment.create([
+      { assessment: twoSum._id, candidate: alice._id, batch: batch._id, assignedBy: adminUser._id, status: "Completed", codingPassed: true, bestCodingScore: 100 },
+      { assessment: twoSum._id, candidate: bob._id, batch: batch._id, assignedBy: adminUser._id, status: "In Progress", codingPassed: true, bestCodingScore: 100 },
+      { assessment: twoSum._id, candidate: charlie._id, batch: batch._id, assignedBy: adminUser._id, status: "In Progress", codingPassed: false, bestCodingScore: 50 },
+      { assessment: twoSum._id, candidate: diana._id, batch: batch._id, assignedBy: adminUser._id, status: "Completed", codingPassed: true, bestCodingScore: 100 },
+      { assessment: fizzBuzz._id, candidate: alice._id, batch: batch._id, assignedBy: adminUser._id, status: "In Progress" },
+      { assessment: fizzBuzz._id, candidate: bob._id, batch: batch._id, assignedBy: adminUser._id, status: "Pending" },
+    ]);
+
+    // 1. Alice - Completed Two Sum Assessment with Report
+    await PreCodeAssessment.create({
+      user: alice._id,
+      problem: twoSum._id,
+      status: "passed",
+      integrityScore: 95,
+      completedAt: new Date(Date.now() - 3600000 * 5),
+    });
+
+    const aliceSub = await Submission.create({
+      user: alice._id,
+      problem: twoSum._id,
+      code: "class Solution { public int[] twoSum(int[] nums, int target) { return new int[]{0,1}; } }",
+      status: "Accepted",
+      executionTime: "12ms",
+      testCaseResults: [{ passed: true }, { passed: true }, { passed: true }],
+    });
+
+    const aliceSession = await InterviewSession.create({
+      user: alice._id,
+      submission: aliceSub._id,
+      problem: twoSum._id,
+      status: "completed",
+      codingScore: 100,
+      interviewScore: 85,
+      overallScore: 88,
+      codingPassed: true,
+      interviewPassed: true,
+      overallPassed: true,
+      feedback: "Strong grasp of hash map trade-offs and complexity analysis.",
+      grade: "A",
+      completedAt: new Date(Date.now() - 3600000 * 4),
+    });
+
+    await Report.create({
+      user: alice._id,
+      interviewSession: aliceSession._id,
+      reportType: "Full Candidate Assessment Report",
+      version: "2.0",
+      generatedBy: faculty1._id,
+      reportData: {
+        summary: "Alice demonstrated excellent mastery in Two Sum, solving via HashMap with optimal O(n) runtime.",
+        scores: { preCode: 95, coding: 100, postCode: 85, overall: 88 },
+        verdict: "PASSED",
+        breakdown: { timeComplexity: "O(n)", spaceComplexity: "O(n)" },
+      },
+    });
+
+    // 2. Diana - Completed Two Sum Assessment with Report (Failed)
+    await PreCodeAssessment.create({
+      user: diana._id,
+      problem: twoSum._id,
+      status: "passed",
+      integrityScore: 70,
+      completedAt: new Date(Date.now() - 3600000 * 3),
+    });
+
+    const dianaSub = await Submission.create({
+      user: diana._id,
+      problem: twoSum._id,
+      code: "class Solution { public int[] twoSum(int[] nums, int target) { return new int[]{0,1}; } }",
+      status: "Accepted",
+      executionTime: "45ms",
+      testCaseResults: [{ passed: true }, { passed: true }, { passed: true }],
+    });
+
+    const dianaSession = await InterviewSession.create({
+      user: diana._id,
+      submission: dianaSub._id,
+      problem: twoSum._id,
+      status: "completed",
+      codingScore: 70,
+      interviewScore: 35,
+      overallScore: 42,
+      codingPassed: true,
+      interviewPassed: false,
+      overallPassed: false,
+      feedback: "Needs deeper understanding of hash collisions and edge condition handling.",
+      grade: "D",
+      completedAt: new Date(Date.now() - 3600000 * 2),
+    });
+
+    await Report.create({
+      user: diana._id,
+      interviewSession: dianaSession._id,
+      reportType: "Full Candidate Assessment Report",
+      version: "2.0",
+      generatedBy: faculty1._id,
+      reportData: {
+        summary: "Diana passed pre-coding but struggled to explain time complexity tradeoffs during AI interview.",
+        scores: { preCode: 70, coding: 70, postCode: 35, overall: 42 },
+        verdict: "FAILED",
+      },
+    });
+
+    // 3. Bob - In Progress (Pre-code passed, coding passed, interview in progress - NO report)
+    await PreCodeAssessment.create({
+      user: bob._id,
+      problem: twoSum._id,
+      status: "passed",
+      integrityScore: 90,
+      completedAt: new Date(Date.now() - 3600000),
+    });
+
+    const bobSub = await Submission.create({
+      user: bob._id,
+      problem: twoSum._id,
+      code: "class Solution { public int[] twoSum(int[] nums, int target) { return new int[]{0,1}; } }",
+      status: "Accepted",
+      executionTime: "15ms",
+      testCaseResults: [{ passed: true }, { passed: true }, { passed: true }],
+    });
+
+    await InterviewSession.create({
+      user: bob._id,
+      submission: bobSub._id,
+      problem: twoSum._id,
+      status: "in_progress",
+      startedAt: new Date(Date.now() - 1800000),
+    });
+
+    // 4. Charlie - In Progress (Pre-code passed, coding attempt wrong answer, no interview)
+    await PreCodeAssessment.create({
+      user: charlie._id,
+      problem: twoSum._id,
+      status: "passed",
+      integrityScore: 82,
+      completedAt: new Date(Date.now() - 7200000),
+    });
+
+    await Submission.create({
+      user: charlie._id,
+      problem: twoSum._id,
+      code: "class Solution { public int[] twoSum() {} }",
+      status: "Wrong Answer",
+      executionTime: "20ms",
+      testCaseResults: [{ passed: false }, { passed: false }, { passed: true }],
+    });
+
+    console.log("Seeded sample assessment attempts, submissions, and reports.");
 
     // Seed static problems from questions.csv
     const existingStaticCount = await StaticProblem.countDocuments();
@@ -279,9 +470,10 @@ async function seed() {
       console.log(`Static problems already exist (${existingStaticCount} docs), skipping CSV seed.`);
     }
 
-    console.log("\nSeed complete! Credentials:");
-    console.log("  Admin: admin@code.io / admin123");
-    console.log("  User:  user@code.io / user123");
+    console.log("\nSeed complete! Ready for all 3 logins:");
+    console.log("  Admin:   admin@code.io / admin123");
+    console.log("  Faculty: faculty@code.io / faculty123");
+    console.log("  Student: user@code.io / user123");
 
     process.exit(0);
   } catch (error) {

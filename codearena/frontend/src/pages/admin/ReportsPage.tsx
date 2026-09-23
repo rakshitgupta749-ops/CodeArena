@@ -58,8 +58,7 @@ export function ReportsPage() {
                     <TableHead>Date</TableHead>
                     <TableHead>Candidate</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -68,7 +67,6 @@ export function ReportsPage() {
                       <TableCell>{new Date(r.generatedAt).toLocaleString()}</TableCell>
                       <TableCell className="font-medium">{r.user?.name || "Unknown"}</TableCell>
                       <TableCell>{r.reportType}</TableCell>
-                      <TableCell>v{r.version}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/reports/${r._id}`)}>
                           <Eye className="h-4 w-4 mr-2" />

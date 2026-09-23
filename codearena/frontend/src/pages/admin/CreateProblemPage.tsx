@@ -4,15 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { QuillEditor } from "@/components/QuillEditor";
-import { ArrowLeft, Plus, Trash2, Save, Eye, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, Eye, Loader2, Clock, BrainCircuit } from "lucide-react";
 import Editor from "@monaco-editor/react";
-import { api, type Problem, type Difficulty } from "@/lib/api";
+import { api, type Difficulty } from "@/lib/api";
 
 interface TestCaseLocal {
   input: string;
@@ -39,11 +40,43 @@ export function CreateProblemPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Timing & Questions Limits Configuration
+  const [timeConfig, setTimeConfig] = useState({
+    preCodeAssessmentTimer: 15,
+    codingTestTimer: 60,
+    interviewTimer: 30,
+  });
+  const [questionsConfig, setQuestionsConfig] = useState({
+    preCodeMaxQuestions: 7,
+    postCodeMaxQuestions: 10,
+  });
+
+  // Fetch global settings to initialize defaults if creating new problem
+  useEffect(() => {
+    if (!id) {
+      api.get<any>("/settings")
+        .then((res) => {
+          if (res?.timers) {
+            setTimeConfig({
+              preCodeAssessmentTimer: res.timers.preCodeAssessmentTimer ?? 15,
+              codingTestTimer: res.timers.codingTestTimer ?? 60,
+              interviewTimer: res.timers.interviewTimer ?? 30,
+            });
+          }
+          setQuestionsConfig({
+            preCodeMaxQuestions: res?.preCodeMaxQuestions ?? 7,
+            postCodeMaxQuestions: res?.postCodeMaxQuestions ?? 10,
+          });
+        })
+        .catch(() => {});
+    }
+  }, [id]);
+
   // Fetch existing problem if editing
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    api.get<Problem>(`/problems/${id}`)
+    api.get<any>(`/problems/${id}`)
       .then((problem) => {
         setTitle(problem.title);
         setDifficulty(problem.difficulty);
@@ -52,9 +85,22 @@ export function CreateProblemPage() {
         setSampleInput(problem.sampleInput);
         setSampleOutput(problem.sampleOutput);
         setTestCases(
-          problem.testCases.map((tc) => ({ input: tc.input, expectedOutput: tc.expectedOutput, isHidden: tc.isHidden }))
+          problem.testCases.map((tc: any) => ({ input: tc.input, expectedOutput: tc.expectedOutput, isHidden: tc.isHidden }))
         );
         setBoilerplate(problem.boilerplate);
+        if (problem.timeConfig) {
+          setTimeConfig({
+            preCodeAssessmentTimer: problem.timeConfig.preCodeAssessmentTimer ?? 15,
+            codingTestTimer: problem.timeConfig.codingTestTimer ?? 60,
+            interviewTimer: problem.timeConfig.interviewTimer ?? 30,
+          });
+        }
+        if (problem.questionsConfig) {
+          setQuestionsConfig({
+            preCodeMaxQuestions: problem.questionsConfig.preCodeMaxQuestions ?? 7,
+            postCodeMaxQuestions: problem.questionsConfig.postCodeMaxQuestions ?? 10,
+          });
+        }
       })
       .catch((err) => console.error("Failed to fetch problem:", err))
       .finally(() => setLoading(false));
@@ -86,6 +132,15 @@ export function CreateProblemPage() {
         sampleOutput,
         testCases,
         boilerplate,
+        timeConfig: {
+          preCodeAssessmentTimer: Number(timeConfig.preCodeAssessmentTimer),
+          codingTestTimer: Number(timeConfig.codingTestTimer),
+          interviewTimer: Number(timeConfig.interviewTimer),
+        },
+        questionsConfig: {
+          preCodeMaxQuestions: Number(questionsConfig.preCodeMaxQuestions),
+          postCodeMaxQuestions: Number(questionsConfig.postCodeMaxQuestions),
+        },
       };
 
       if (isEdit) {
@@ -179,6 +234,116 @@ export function CreateProblemPage() {
                       <SelectItem value="Hard">🔴 Hard</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Assessment & Interview Timing and Question Configuration */}
+          <Card className="border-border/50 bg-card/60">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <CardTitle className="text-base">Assessment & Interview Configuration (Optional Overrides)</CardTitle>
+                </div>
+                <Badge variant="outline" className="text-[11px] font-normal">
+                  Defaults to Global Settings
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Configure default round durations (5 to 60 min) and maximum question limits (2 to 15) for this assessment. Faculty can also customize these per student upon assignment.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="timer-precode" className="text-xs flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                    Round 1: Pre-Code Timer (min)
+                  </Label>
+                  <Input
+                    id="timer-precode"
+                    type="number"
+                    min={5}
+                    max={60}
+                    value={timeConfig.preCodeAssessmentTimer}
+                    onChange={(e) => setTimeConfig({ ...timeConfig, preCodeAssessmentTimer: Number(e.target.value) })}
+                    className="h-10"
+                  />
+                  <span className="text-[10px] text-muted-foreground">Range: 5 - 60 minutes</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="timer-coding" className="text-xs flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                    Round 2: Coding Sandbox Timer (min)
+                  </Label>
+                  <Input
+                    id="timer-coding"
+                    type="number"
+                    min={5}
+                    max={60}
+                    value={timeConfig.codingTestTimer}
+                    onChange={(e) => setTimeConfig({ ...timeConfig, codingTestTimer: Number(e.target.value) })}
+                    className="h-10"
+                  />
+                  <span className="text-[10px] text-muted-foreground">Range: 5 - 60 minutes</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="timer-interview" className="text-xs flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                    Round 3: Interview Timer (min)
+                  </Label>
+                  <Input
+                    id="timer-interview"
+                    type="number"
+                    min={5}
+                    max={60}
+                    value={timeConfig.interviewTimer}
+                    onChange={(e) => setTimeConfig({ ...timeConfig, interviewTimer: Number(e.target.value) })}
+                    className="h-10"
+                  />
+                  <span className="text-[10px] text-muted-foreground">Range: 5 - 60 minutes</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="q-precode" className="text-xs flex items-center gap-1.5">
+                    <BrainCircuit className="w-3.5 h-3.5 text-muted-foreground" />
+                    Pre-Code Interview Max Questions
+                  </Label>
+                  <Input
+                    id="q-precode"
+                    type="number"
+                    min={2}
+                    max={15}
+                    value={questionsConfig.preCodeMaxQuestions}
+                    onChange={(e) => setQuestionsConfig({ ...questionsConfig, preCodeMaxQuestions: Number(e.target.value) })}
+                    className="h-10"
+                  />
+                  <span className="text-[10px] text-muted-foreground">Allowed: 2 - 15 questions</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="q-postcode" className="text-xs flex items-center gap-1.5">
+                    <BrainCircuit className="w-3.5 h-3.5 text-muted-foreground" />
+                    Post-Code Interview Max Questions
+                  </Label>
+                  <Input
+                    id="q-postcode"
+                    type="number"
+                    min={2}
+                    max={15}
+                    value={questionsConfig.postCodeMaxQuestions}
+                    onChange={(e) => setQuestionsConfig({ ...questionsConfig, postCodeMaxQuestions: Number(e.target.value) })}
+                    className="h-10"
+                  />
+                  <span className="text-[10px] text-muted-foreground">Allowed: 2 - 15 questions</span>
                 </div>
               </div>
             </CardContent>

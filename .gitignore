@@ -1,0 +1,121 @@
+# ==============================================================================
+# Dependencies
+# ==============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Python virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ==============================================================================
+# Python & Bytecode
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==============================================================================
+# Frontend Build Output
+# ==============================================================================
+frontend/dist/
+codearena/frontend/dist/
+*.tsbuildinfo
+.parcel-cache/
+.next/
+out/
+
+# ==============================================================================
+# Machine Learning Models & Heavy Weights
+# ==============================================================================
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.h5
+*.tflite
+
+# External tools & voice model directories
+backend/tools/
+codearena/backend/tools/
+tools/piper/
+piper/
+
+# ==============================================================================
+# Environment Variables & Secrets
+# ==============================================================================
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+!.env.sample
+!exampleenv.text
+!sampleenv.txt
+
+# ==============================================================================
+# Logs & Uploads & Temp Files
+# ==============================================================================
+*.log
+logs/
+backend/tmp/
+codearena/backend/tmp/
+backend/uploads/
+codearena/backend/uploads/
+uploads/
+tmp/
+temp/
+CRASH.txt
+.cache/
+
+# ==============================================================================
+# IDEs & Text Editors
+# ==============================================================================
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ==============================================================================
+# Operating System
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini

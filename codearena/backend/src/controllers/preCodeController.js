@@ -2,8 +2,10 @@
 
 const PreCodeAssessment = require("../models/PreCodeAssessment");
 const Problem = require("../models/Problem");
+const Assignment = require("../models/Assignment");
+const Setting = require("../models/Setting");
 const PRE_CODE_SESSION_TIMEOUT_MS = 10 * 60 * 1000;
-const PRE_CODE_TOTAL_TIME_MS = 6 * 60 * 1000;
+const DEFAULT_PRE_CODE_TIME_LIMIT_MINUTES = 15;
 
 const {
   startAssessment,
@@ -236,9 +238,14 @@ const submitPreCodeAnswer = async (req, res) => {
       });
     }
 
+    const setting = await Setting.findOne();
+    const configuredLimitMinutes =
+      setting?.preCodeAssessmentTimer || DEFAULT_PRE_CODE_TIME_LIMIT_MINUTES;
+    const totalTimeLimitMs = configuredLimitMinutes * 60 * 1000;
+
     const assessmentTimeExpired =
       !assessment.startedAt ||
-      Date.now() - assessment.startedAt.getTime() >= PRE_CODE_TOTAL_TIME_MS;
+      Date.now() - assessment.startedAt.getTime() >= totalTimeLimitMs;
 
     if (assessmentTimeExpired) {
       assessment.status = "terminated";
@@ -582,7 +589,23 @@ const submitPreCodeAnswer = async (req, res) => {
 
       const isRecoveryFailure = Boolean(curRubricObj.probeUsed && rating === "weak");
 
-      if (unevaluatedRubrics.length === 0) {
+      let maxPreCodeQuestions = 7;
+      try {
+        const activeAssign = await Assignment.findOne({ candidate: req.user?._id, assessment: problem._id });
+        if (activeAssign?.questionsConfig?.preCodeMaxQuestions) {
+          maxPreCodeQuestions = activeAssign.questionsConfig.preCodeMaxQuestions;
+        } else if (problem?.questionsConfig?.preCodeMaxQuestions) {
+          maxPreCodeQuestions = problem.questionsConfig.preCodeMaxQuestions;
+        } else {
+          const setting = await Setting.findOne();
+          maxPreCodeQuestions = setting?.preCodeMaxQuestions || 7;
+        }
+      } catch (err) {
+        const setting = await Setting.findOne();
+        maxPreCodeQuestions = setting?.preCodeMaxQuestions || 7;
+      }
+
+      if (unevaluatedRubrics.length === 0 || assessment.questionCount >= maxPreCodeQuestions) {
         result.decision = "finalize";
       } else {
         const nextRubric = unevaluatedRubrics[0];
@@ -610,6 +633,10 @@ const submitPreCodeAnswer = async (req, res) => {
           result.interviewerMessage = null;
         }
       }
+    }
+
+    if (assessment.questionCount >= maxPreCodeQuestions) {
+      result.decision = "finalize";
     }
 
     if (result.decision === "finalize") {

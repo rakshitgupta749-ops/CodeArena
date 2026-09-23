@@ -12,8 +12,13 @@ const {
   getReportById,
   getAnalytics,
   createCandidate,
+  updateUserRole,
   deleteCandidate,
+  reactivateCandidate,
+  deleteCandidatePermanently,
   updateSettings,
+  getAssessmentDashboard,
+  getAssessmentCandidates,
 } = require("../controllers/adminController");
 const {
   getBatches,
@@ -28,6 +33,7 @@ const {
   getCandidateAssignments,
   getAllAssignments,
   deleteAssignment,
+  updateAssignment,
 } = require("../controllers/assignmentController");
 
 // Protect all admin routes with auth and at least faculty level
@@ -37,25 +43,33 @@ router.use(adminOrFaculty);
 // Analytics
 router.get("/analytics", getAnalytics);
 
-// Candidates
+// Assessment Dashboard & Candidates Detail
+router.get("/assessment-dashboard", getAssessmentDashboard);
+router.get("/assessments/:id/candidates", getAssessmentCandidates);
+
+// Candidates / Users
 router.get("/candidates", getCandidates);
 router.post("/candidates", createCandidate);
 router.get("/candidates/:id", getCandidateById);
+router.patch("/candidates/:id/role", updateUserRole);
 router.delete("/candidates/:id", deleteCandidate);
+router.patch("/candidates/:id/reactivate", reactivateCandidate);
+router.delete("/candidates/:id/permanent", deleteCandidatePermanently);
 router.get("/candidates/:id/interviews", getCandidateInterviews);
 router.get("/candidates/:id/assignments", getCandidateAssignments);
 
-// Batches
+// Batches (Creation & Management is Admin-Only; Assign to Batch is accessible to Faculty)
 router.get("/batches", getBatches);
-router.post("/batches", createBatch);
-router.get("/batches/:id", getBatchById);
-router.put("/batches/:id", updateBatch);
-router.delete("/batches/:id", deleteBatch);
+router.post("/batches", adminOnly, createBatch);
+router.get("/batches/:id", adminOnly, getBatchById);
+router.put("/batches/:id", adminOnly, updateBatch);
+router.delete("/batches/:id", adminOnly, deleteBatch);
 router.post("/batches/:id/assign-assessment", assignToBatch);
 
 // Assignments
 router.get("/assignments", getAllAssignments);
 router.post("/assignments", assignToCandidate);
+router.put("/assignments/:id", updateAssignment);
 router.delete("/assignments/:id", deleteAssignment);
 
 // Interviews

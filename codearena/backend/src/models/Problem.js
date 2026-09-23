@@ -57,6 +57,20 @@ public class Solution {
     type: Boolean,
     default: false,
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
+  timeConfig: {
+    preCodeAssessmentTimer: { type: Number, min: 5, max: 60, default: null },
+    codingTestTimer: { type: Number, min: 5, max: 60, default: null },
+    interviewTimer: { type: Number, min: 5, max: 60, default: null },
+  },
+  questionsConfig: {
+    preCodeMaxQuestions: { type: Number, min: 2, max: 15, default: null },
+    postCodeMaxQuestions: { type: Number, min: 2, max: 15, default: null },
+  },
   createdAt: {
     type: Date,
     default: Date.now,

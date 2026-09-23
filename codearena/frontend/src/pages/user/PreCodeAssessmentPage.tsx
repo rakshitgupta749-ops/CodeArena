@@ -139,8 +139,6 @@ export function PreCodeAssessmentPage() {
   
   // Audio refs
   const spokenMessageIdsRef = useRef<Set<string>>(new Set());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUrlRef = useRef<string | null>(null);
   const playbackRequestIdRef = useRef(0);
   const recognitionRef = useRef<any | null>(null);
   const recognitionStartTimeRef = useRef<number | null>(null);
@@ -148,20 +146,7 @@ export function PreCodeAssessmentPage() {
 
   // Audio helpers
   const clearAudioPlayback = useCallback(() => {
-    if (audioRef.current) {
-      const currentAudio = audioRef.current;
-      currentAudio.onended = null;
-      currentAudio.onerror = null;
-      currentAudio.pause();
-      currentAudio.removeAttribute("src");
-      currentAudio.load();
-      audioRef.current = null;
-    }
-
-    if (audioUrlRef.current) {
-      window.URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
+    window.speechSynthesis.cancel();
   }, []);
 
   const stopSpeaking = useCallback(() => {
@@ -182,71 +167,34 @@ export function PreCodeAssessmentPage() {
       setSpeakingMessageId(msgId);
 
       try {
-        const audio = await api.postBlob("/voice/tts", { text: speakableText });
-        if (requestId !== playbackRequestIdRef.current) return;
+        const utterance = new SpeechSynthesisUtterance(speakableText);
+        
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Samantha'))) || voices[0];
+        if (preferredVoice) utterance.voice = preferredVoice;
 
-        const buffer = await audio.arrayBuffer();
-        const bytes = new Uint8Array(buffer.slice(0, 12));
-        const header = String.fromCharCode(...bytes);
-
-        if (buffer.byteLength < 12 || !header.startsWith("RIFF") || header.slice(8, 12) !== "WAVE") {
-          throw new Error("Piper returned a response that was not a valid WAV file.");
-        }
-
-        const playableAudio = new Blob([buffer], { type: "audio/wav" });
-        const audioUrl = window.URL.createObjectURL(playableAudio);
-        const player = new Audio(audioUrl);
-        player.preload = "auto";
-
-        audioRef.current = player;
-        audioUrlRef.current = audioUrl;
-
-        player.onended = () => {
+        utterance.onend = () => {
           if (requestId !== playbackRequestIdRef.current) return;
-          clearAudioPlayback();
           setSpeakingMessageId(null);
         };
 
-        player.onerror = () => {
+        utterance.onerror = () => {
           if (requestId !== playbackRequestIdRef.current) return;
-          clearAudioPlayback();
-          setVoiceError("Local Piper audio could not be played by this browser.");
+          setVoiceError("Browser audio playback failed.");
           setSpeakingMessageId(null);
         };
 
-        await player.play();
+        window.speechSynthesis.speak(utterance);
       } catch (err) {
         if (requestId !== playbackRequestIdRef.current) return;
-        if (err instanceof DOMException && err.name === "NotAllowedError") {
-          setVoiceError("Audio is ready. Press Replay to start it after interacting with the page.");
-          setSpeakingMessageId(null);
-          return;
-        }
-        clearAudioPlayback();
-        setVoiceError(
-          err instanceof Error
-            ? `Local Piper unavailable: ${err.message}`
-            : "Local Piper unavailable. Text mode is ready."
-        );
+        setVoiceError("Browser text-to-speech is unavailable.");
         setSpeakingMessageId(null);
       }
     },
-    [clearAudioPlayback, stopSpeaking]
+    [stopSpeaking]
   );
 
   const handleReplayQuestion = useCallback(() => {
-    const loadedPlayer = audioRef.current;
-    if (loadedPlayer?.src) {
-      loadedPlayer.currentTime = 0;
-      setVoiceError(null);
-      setSpeakingMessageId("replay");
-      void loadedPlayer.play().catch(() => {
-        setSpeakingMessageId(null);
-        setVoiceError("Unable to play the prepared audio.");
-      });
-      return;
-    }
-
     if (!assessment || !assessment.conversation) return;
     const aiMessages = assessment.conversation.map((m, i) => ({...m, idx: i})).filter(m => m.role === "ai");
     const latestQuestion = aiMessages.length > 0 ? aiMessages[aiMessages.length - 1] : null;
@@ -461,7 +409,7 @@ export function PreCodeAssessmentPage() {
     if (!id) return;
     Promise.all([
       api.get<Problem>(`/problems/${id}`),
-      api.get("/settings")
+      api.get(`/settings?problemId=${id}`)
     ])
       .then(([probData, settingsData]: [any, any]) => {
         setProblem(probData);

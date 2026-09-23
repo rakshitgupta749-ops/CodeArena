@@ -99,11 +99,25 @@ export function InterviewsPage() {
                   <TableRow key={interview._id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{interview.user?.name || "Unknown"}</span>
-                        <span className="text-xs text-muted-foreground">{interview.user?.email}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{interview.user?.name || "Unknown Candidate"}</span>
+                          {interview.user?.isActive === false && (
+                            <Badge variant="destructive" className="text-[10px] px-1 py-0">Inactive</Badge>
+                          )}
+                        </div>
+                        {interview.user?.email && (
+                          <span className="text-xs text-muted-foreground">{interview.user.email}</span>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell>{interview.problem?.title || "N/A"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <span>{interview.problem?.title || "Unknown Problem"}</span>
+                        {interview.problem?.difficulty && (
+                          <Badge variant="outline" className="text-[10px]">{interview.problem.difficulty}</Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{new Date(interview.startedAt).toLocaleString()}</TableCell>
                     <TableCell>{getStatusBadge(interview.status)}</TableCell>
                     <TableCell>

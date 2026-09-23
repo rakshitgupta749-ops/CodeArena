@@ -7,7 +7,7 @@ const {
   toggleProblem,
   deleteProblem,
 } = require("../controllers/problemController");
-const { auth, adminOnly } = require("../middleware/auth");
+const { auth, adminOrFaculty } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -16,9 +16,9 @@ router.use(auth);
 
 router.get("/", getProblems);
 router.get("/:id", getProblem);
-router.post("/", adminOnly, createProblem);
-router.put("/:id", adminOnly, updateProblem);
-router.patch("/:id/toggle", adminOnly, toggleProblem);
-router.delete("/:id", adminOnly, deleteProblem);
+router.post("/", adminOrFaculty, createProblem);
+router.put("/:id", adminOrFaculty, updateProblem);
+router.patch("/:id/toggle", adminOrFaculty, toggleProblem);
+router.delete("/:id", adminOrFaculty, deleteProblem);
 
 module.exports = router;

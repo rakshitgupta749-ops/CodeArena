@@ -1,0 +1,22 @@
+# ==============================================================================
+# CodeArena Python Dependencies
+# ==============================================================================
+
+# Core ML & NLP (Candidate Security / Content Moderation Inference & Training)
+torch>=2.0.0
+transformers>=4.35.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
+
+# Speech-to-Text & Audio / TTS Engines
+faster-whisper==1.2.1
+piper-tts>=1.2.0
+
+# LLM Integrations & APIs
+groq>=0.9.0
+langchain-openai>=0.1.0
+httpx>=0.27.0
+
+# Utilities
+python-dotenv>=1.0.0
+requests>=2.31.0

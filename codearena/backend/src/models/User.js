@@ -21,8 +21,9 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ["admin", "faculty", "user"],
+    enum: ["admin", "faculty", "user", "student"],
     default: "user",
+    set: (r) => (r === "student" ? "user" : r),
   },
   isActive: {
     type: Boolean,

@@ -174,8 +174,6 @@ export function InterviewPage() {
   const codeEditorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
   const codeHighlightRef = useRef<MonacoEditor.IEditorDecorationsCollection | null>(null);
   const spokenMessageIdsRef = useRef<Set<string>>(new Set());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUrlRef = useRef<string | null>(null);
   const playbackRequestIdRef = useRef(0);
   const recognitionRef = useRef<any | null>(null);
   const recognitionStartTimeRef = useRef<number | null>(null);
@@ -234,20 +232,7 @@ export function InterviewPage() {
   );
 
   const clearAudioPlayback = useCallback(() => {
-    if (audioRef.current) {
-      const currentAudio = audioRef.current;
-      currentAudio.onended = null;
-      currentAudio.onerror = null;
-      currentAudio.pause();
-      currentAudio.removeAttribute("src");
-      currentAudio.load();
-      audioRef.current = null;
-    }
-
-    if (audioUrlRef.current) {
-      window.URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
+    window.speechSynthesis.cancel();
   }, []);
 
   const stopSpeaking = useCallback(() => {
@@ -270,79 +255,34 @@ export function InterviewPage() {
       setSpeakingMessageId(message.id);
 
       try {
-        const audio = await api.postBlob("/voice/tts", { text: speakableText });
-        if (requestId !== playbackRequestIdRef.current) return;
+        const utterance = new SpeechSynthesisUtterance(speakableText);
+        
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Samantha'))) || voices[0];
+        if (preferredVoice) utterance.voice = preferredVoice;
 
-        const playableAudio = await preparePlayableAudioBlob(audio);
-        if (requestId !== playbackRequestIdRef.current) return;
-
-        const audioUrl = window.URL.createObjectURL(playableAudio);
-        const player = new Audio(audioUrl);
-        player.preload = "auto";
-
-        audioRef.current = player;
-        audioUrlRef.current = audioUrl;
-
-        player.onended = () => {
+        utterance.onend = () => {
           if (requestId !== playbackRequestIdRef.current) return;
-          clearAudioPlayback();
           setSpeakingMessageId(null);
         };
 
-        player.onerror = () => {
+        utterance.onerror = () => {
           if (requestId !== playbackRequestIdRef.current) return;
-          const errorCode = player.error?.code;
-          clearAudioPlayback();
-          setVoiceError(
-            errorCode
-              ? `Local Piper audio could not be played by this browser (${playableAudio.size} bytes WAV, media error ${errorCode}).`
-              : `Local Piper audio could not be played by this browser (${playableAudio.size} bytes WAV).`
-          );
+          setVoiceError("Browser audio playback failed.");
           setSpeakingMessageId(null);
         };
 
-        await player.play();
+        window.speechSynthesis.speak(utterance);
       } catch (err) {
         if (requestId !== playbackRequestIdRef.current) return;
-        // The server successfully generated audio, but browsers only permit
-        // `play()` after a direct user gesture. Keep the loaded player so the
-        // Replay button can start it synchronously from its click handler.
-        if (err instanceof DOMException && err.name === "NotAllowedError") {
-          setVoiceError("Audio is ready. Press Replay to start it after interacting with the page.");
-          setSpeakingMessageId(null);
-          return;
-        }
-        clearAudioPlayback();
-        setVoiceError(
-          err instanceof Error
-            ? `Local Piper unavailable: ${err.message}`
-            : "Local Piper unavailable. Text mode is ready."
-        );
+        setVoiceError("Browser text-to-speech is unavailable.");
         setSpeakingMessageId(null);
       }
     },
-    [clearAudioPlayback, interviewQuestions, stopSpeaking]
+    [interviewQuestions, stopSpeaking]
   );
 
   const handleReplayQuestion = useCallback(() => {
-    const loadedPlayer = audioRef.current;
-    if (loadedPlayer?.src) {
-      // Do not await before `play()`: browser autoplay policies require this
-      // call to occur directly in response to the user's click.
-      loadedPlayer.currentTime = 0;
-      setVoiceError(null);
-      setSpeakingMessageId("replay");
-      void loadedPlayer.play().catch((err) => {
-        setSpeakingMessageId(null);
-        setVoiceError(
-          err instanceof Error
-            ? `Unable to play the prepared audio: ${err.message}`
-            : "Unable to play the prepared audio."
-        );
-      });
-      return;
-    }
-
     const latestQuestion = [...messages]
       .reverse()
       .find((message) => message.sender === "ai" && Boolean(message.qid));
@@ -524,7 +464,7 @@ export function InterviewPage() {
           }
           Promise.all([
             !problem ? api.get<Problem>(`/problems/${id}`) : Promise.resolve(problem),
-            api.get("/settings")
+            api.get(`/settings?problemId=${id}`)
           ])
             .then(([probData, settingsData]: [any, any]) => {
               if (!problem) setProblem(probData);
@@ -1282,18 +1222,6 @@ function ConnectingToInterviewerScreen({ problemTitle }: { problemTitle: string 
       </div>
     </div>
   );
-}
-
-async function preparePlayableAudioBlob(audio: Blob): Promise<Blob> {
-  const buffer = await audio.arrayBuffer();
-  const bytes = new Uint8Array(buffer.slice(0, 12));
-  const header = String.fromCharCode(...bytes);
-
-  if (buffer.byteLength < 12 || !header.startsWith("RIFF") || header.slice(8, 12) !== "WAVE") {
-    throw new Error("Piper returned a response that was not a valid WAV file.");
-  }
-
-  return new Blob([buffer], { type: "audio/wav" });
 }
 
 function InterviewQuestionContent({

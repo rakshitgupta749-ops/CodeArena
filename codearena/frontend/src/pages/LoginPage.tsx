@@ -10,12 +10,27 @@ import { Code2, Eye, EyeOff, Loader2 } from "lucide-react";
 export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"user" | "admin">("user");
+  const [role, setRole] = useState<"user" | "faculty" | "admin">("user");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const handleRoleSelect = (selectedRole: "user" | "faculty" | "admin") => {
+    setRole(selectedRole);
+    setError("");
+    if (selectedRole === "admin") {
+      setEmail("admin@code.io");
+      setPassword("admin123");
+    } else if (selectedRole === "faculty") {
+      setEmail("faculty@code.io");
+      setPassword("faculty123");
+    } else {
+      setEmail("user@code.io");
+      setPassword("user123");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +47,12 @@ export function LoginPage() {
       setError(result.error || "Invalid credentials. Please try again.");
     }
     setIsLoading(false);
+  };
+
+  const getPlaceholderEmail = () => {
+    if (role === "admin") return "admin@code.io";
+    if (role === "faculty") return "faculty@code.io";
+    return "user@code.io";
   };
 
   return (
@@ -100,26 +121,39 @@ map.put(key, value);`}</pre>
           <Card className="border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20 bg-card/80 backdrop-blur-sm">
             <CardHeader className="pb-4">
               <h2 className="text-2xl font-bold tracking-tight">Sign In</h2>
+              <p className="text-xs text-muted-foreground mt-1">Select your portal role to continue</p>
             </CardHeader>
             <CardContent>
-              {/* Role Toggle */}
-              <div className="flex rounded-xl bg-muted p-1 mb-6" id="role-toggle">
+              {/* Role Toggle - 3 Roles */}
+              <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1 mb-6" id="role-toggle">
                 <button
                   type="button"
-                  onClick={() => setRole("user")}
-                  className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-300 ${
+                  onClick={() => handleRoleSelect("user")}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 ${
                     role === "user"
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                   id="role-user-btn"
                 >
-                  User
+                  Student
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRole("admin")}
-                  className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-300 ${
+                  onClick={() => handleRoleSelect("faculty")}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                    role === "faculty"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  id="role-faculty-btn"
+                >
+                  Faculty
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect("admin")}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 ${
                     role === "admin"
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
@@ -136,7 +170,7 @@ map.put(key, value);`}</pre>
                   <Input
                     id="email"
                     type="email"
-                    placeholder={role === "admin" ? "admin@code.io" : "user@code.io"}
+                    placeholder={getPlaceholderEmail()}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -185,16 +219,20 @@ map.put(key, value);`}</pre>
                       Signing in...
                     </>
                   ) : (
-                    "Sign In"
+                    `Sign In as ${role === "user" ? "Student" : role === "faculty" ? "Faculty" : "Admin"}`
                   )}
                 </Button>
               </form>
 
               <div className="mt-6 pt-4 border-t border-border/50">
                 <p className="text-xs text-muted-foreground text-center">
-                  Demo credentials: <br />
-                  <span className="font-mono text-foreground/70">
-                    {role === "admin" ? "admin@code.io / admin123" : "user@code.io / user123"}
+                  Quick demo credentials: <br />
+                  <span className="font-mono text-foreground/80 font-medium">
+                    {role === "admin"
+                      ? "admin@code.io / admin123"
+                      : role === "faculty"
+                      ? "faculty@code.io / faculty123"
+                      : "user@code.io / user123"}
                   </span>
                 </p>
               </div>
