@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CodeArenaHeldOutGroundingEvaluationSchema",
+  "description": "Strictly segregated schema for genuinely held-out source-code grounding benchmarks, separating runtime candidate inference inputs from ground-truth evaluation metadata.",
+  "type": "object",
+  "required": ["dataset_metadata", "cases"],
+  "properties": {
+    "dataset_metadata": {
+      "type": "object",
+      "required": ["dataset_id", "schema_version", "split", "creation_timestamp", "leakage_prevention_hash"],
+      "properties": {
+        "dataset_id": { "type": "string" },
+        "schema_version": { "type": "string", "enum": ["1.0.0-heldout"] },
+        "split": { "type": "string", "enum": ["test_held_out"] },
+        "creation_timestamp": { "type": "string", "format": "date-time" },
+        "leakage_prevention_hash": { "type": "string", "description": "SHA-256 hash verifying test cases do not overlap with development cases" },
+        "source_curation": {
+          "type": "object",
+          "properties": {
+            "unseen_candidates_count": { "type": "integer" },
+            "independent_annotators": { "type": "array", "items": { "type": "string" } },
+            "inter_annotator_agreement_cohen_kappa": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "inference_payload",
+          "evaluation_ground_truth"
+        ],
+        "properties": {
+          "case_id": { "type": "string", "pattern": "^HOLDOUT-[0-9]{3,}$" },
+          "problem_context": {
+            "type": "object",
+            "properties": {
+              "problem_id": { "type": "string" },
+              "problem_title": { "type": "string" },
+              "language": { "type": "string", "enum": ["java", "python", "cpp", "typescript"] }
+            }
+          },
+          "inference_payload": {
+            "description": "The ONLY payload permitted to be passed into validateQuestionGroundedness(). Must never contain labels, rationales, or claim expectations.",
+            "type": "object",
+            "required": ["source_code", "question_text", "code_anchor", "language"],
+            "properties": {
+              "source_code": { "type": "string" },
+              "question_text": { "type": "string" },
+              "code_anchor": { "type": "string" },
+              "language": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "evaluation_ground_truth": {
+            "description": "Evaluation metadata strictly restricted to the post-inference evaluation layer. Never loaded during inference.",
+            "type": "object",
+            "required": [
+              "ground_truth_label",
+              "expected_admission",
+              "failure_category",
+              "annotator_adjudication"
+            ],
+            "properties": {
+              "ground_truth_label": { "type": "string", "enum": ["VALID", "UNSUPPORTED", "AMBIGUOUS"] },
+              "expected_admission": { "type": "string", "enum": ["ADMIT", "REJECT", "MANUAL_REVIEW"] },
+              "failure_category": {
+                "type": "string",
+                "enum": [
+                  "GROUNDED_VALID",
+                  "NONEXISTENT_ENTITY",
+                  "SEMANTIC_CONTRADICTION",
+                  "UNRELATED_ANCHOR",
+                  "INSUFFICIENT_ANCHOR_EVIDENCE",
+                  "INVALIDATED_STALE_ANCHOR",
+                  "PARTIALLY_UNSUPPORTED_CONJUNCTION",
+                  "CONTEXT_DEPENDENT_INVARIANT",
+                  "EXTERNAL_DEPENDENCY",
+                  "DUPLICATE_ANCHORS"
+                ]
+              },
+              "annotator_adjudication": {
+                "type": "object",
+                "required": ["primary_annotator", "secondary_annotator", "consensus_rationale"],
+                "properties": {
+                  "primary_annotator": { "type": "string" },
+                  "secondary_annotator": { "type": "string" },
+                  "consensus_rationale": { "type": "string" }
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
+

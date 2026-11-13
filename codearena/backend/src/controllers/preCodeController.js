@@ -48,6 +48,8 @@ function toClientAssessment(assessment) {
     startedAt: data.startedAt,
     completedAt: data.completedAt,
     rubricState: data.rubricState || {},
+    intentProfile: data.intentProfile || null,
+    preCodeScore: data.preCodeScore ?? null,
   };
 }
 
@@ -267,6 +269,20 @@ const submitPreCodeAnswer = async (req, res) => {
       return res.status(404).json({
         message: "Associated problem not found.",
       });
+    }
+
+    let maxPreCodeQuestions = assessment.maxQuestions || 7;
+    try {
+      const activeAssign = await Assignment.findOne({ candidate: req.user?._id, assessment: problem._id });
+      if (activeAssign?.questionsConfig?.preCodeMaxQuestions) {
+        maxPreCodeQuestions = activeAssign.questionsConfig.preCodeMaxQuestions;
+      } else if (problem?.questionsConfig?.preCodeMaxQuestions) {
+        maxPreCodeQuestions = problem.questionsConfig.preCodeMaxQuestions;
+      } else if (setting?.preCodeMaxQuestions) {
+        maxPreCodeQuestions = setting.preCodeMaxQuestions;
+      }
+    } catch {
+      maxPreCodeQuestions = setting?.preCodeMaxQuestions || assessment.maxQuestions || 7;
     }
 
     /*
@@ -589,22 +605,6 @@ const submitPreCodeAnswer = async (req, res) => {
 
       const isRecoveryFailure = Boolean(curRubricObj.probeUsed && rating === "weak");
 
-      let maxPreCodeQuestions = 7;
-      try {
-        const activeAssign = await Assignment.findOne({ candidate: req.user?._id, assessment: problem._id });
-        if (activeAssign?.questionsConfig?.preCodeMaxQuestions) {
-          maxPreCodeQuestions = activeAssign.questionsConfig.preCodeMaxQuestions;
-        } else if (problem?.questionsConfig?.preCodeMaxQuestions) {
-          maxPreCodeQuestions = problem.questionsConfig.preCodeMaxQuestions;
-        } else {
-          const setting = await Setting.findOne();
-          maxPreCodeQuestions = setting?.preCodeMaxQuestions || 7;
-        }
-      } catch (err) {
-        const setting = await Setting.findOne();
-        maxPreCodeQuestions = setting?.preCodeMaxQuestions || 7;
-      }
-
       if (unevaluatedRubrics.length === 0 || assessment.questionCount >= maxPreCodeQuestions) {
         result.decision = "finalize";
       } else {
@@ -742,6 +742,21 @@ const timeoutPreCodeAssessment = async (req, res) => {
       return res.status(404).json({
         message: "Associated problem not found.",
       });
+    }
+
+    const setting = await Setting.findOne();
+    let maxPreCodeQuestions = assessment.maxQuestions || 7;
+    try {
+      const activeAssign = await Assignment.findOne({ candidate: req.user?._id, assessment: problem._id });
+      if (activeAssign?.questionsConfig?.preCodeMaxQuestions) {
+        maxPreCodeQuestions = activeAssign.questionsConfig.preCodeMaxQuestions;
+      } else if (problem?.questionsConfig?.preCodeMaxQuestions) {
+        maxPreCodeQuestions = problem.questionsConfig.preCodeMaxQuestions;
+      } else if (setting?.preCodeMaxQuestions) {
+        maxPreCodeQuestions = setting.preCodeMaxQuestions;
+      }
+    } catch {
+      maxPreCodeQuestions = setting?.preCodeMaxQuestions || assessment.maxQuestions || 7;
     }
 
     const result = await finalizeAssessment({

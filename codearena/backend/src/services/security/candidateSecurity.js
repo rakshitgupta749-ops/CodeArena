@@ -7,18 +7,23 @@ const PREDICT_SERVER_SCRIPT = path.join(__dirname, "predict_server.py");
 const SERVER_PORT = 5005;
 const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}/predict`;
 
+const PYTHON_CMD = process.env.PYTHON_PATH || (process.platform === "win32" ? "python" : "python3");
+
 let serverProcess = null;
 let serverReady = false;
+let restartAttempts = 0;
+const MAX_RESTARTS = 3;
 
 function startPythonServer() {
   if (serverProcess) return;
-  console.log("[CandidateSecurity] Starting ML inference daemon...");
-  serverProcess = spawn("python3", [PREDICT_SERVER_SCRIPT, "--port", SERVER_PORT]);
+  console.log(`[CandidateSecurity] Starting ML inference daemon using '${PYTHON_CMD}'...`);
+  serverProcess = spawn(PYTHON_CMD, [PREDICT_SERVER_SCRIPT, "--port", SERVER_PORT]);
 
   serverProcess.stdout.on("data", (data) => {
     if (data.toString().includes("Server running")) {
       console.log("[CandidateSecurity] ML inference daemon is ready.");
       serverReady = true;
+      restartAttempts = 0;
     }
   });
 
@@ -28,10 +33,17 @@ function startPythonServer() {
 
   serverProcess.on("exit", (code) => {
     if (code !== 0 && code !== null) {
-      console.log(`[CandidateSecurity] ML daemon exited with code ${code}. Restarting in 1s...`);
-      serverProcess = null;
-      serverReady = false;
-      setTimeout(startPythonServer, 1000);
+      restartAttempts++;
+      if (restartAttempts <= MAX_RESTARTS) {
+        console.log(`[CandidateSecurity] ML daemon exited with code ${code}. Restarting (${restartAttempts}/${MAX_RESTARTS}) in 2s...`);
+        serverProcess = null;
+        serverReady = false;
+        setTimeout(startPythonServer, 2000);
+      } else {
+        console.warn(`[CandidateSecurity] ML daemon failed after ${MAX_RESTARTS} attempts. Running in fallback mode without ML moderation.`);
+        serverProcess = null;
+        serverReady = false;
+      }
     }
   });
 }

@@ -18,7 +18,13 @@ ensure_container() {
 
 # Start MongoDB
 echo "Starting MongoDB..."
-sudo systemctl start mongod 2>/dev/null || echo "MongoDB system service check passed/skipped."
+if sudo systemctl is-active --quiet mongod 2>/dev/null; then
+    echo "MongoDB system service is running."
+elif sudo systemctl start mongod 2>/dev/null; then
+    echo "MongoDB system service started."
+else
+    ensure_container "codearena-mongo" "sudo docker run -d --name codearena-mongo -p 27017:27017 mongo:latest"
+fi
 
 # Start Redis (BullMQ queue & caching)
 echo "Starting Redis..."

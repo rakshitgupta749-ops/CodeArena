@@ -466,6 +466,8 @@ const getReportById = async (req, res) => {
     } else {
       reportObj.preCodeAssessment = null;
     }
+    reportObj.crossRoundComparison = reportObj.interviewSession?.crossRoundComparison || null;
+    reportObj.roundScores = reportObj.interviewSession?.roundScores || null;
 
     // Generate/format personalized improvement path suggestion if not already present
     if (!reportObj.reportData?.improvementPath) {

@@ -131,6 +131,16 @@ const preCodeAssessmentSchema = new mongoose.Schema(
       default: null,
     },
 
+    intentProfile: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+
+    preCodeScore: {
+      type: Number,
+      default: null,
+    },
+
     integrityScore: {
       type: Number,
       default: 100,

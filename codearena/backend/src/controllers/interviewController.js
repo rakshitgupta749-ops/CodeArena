@@ -1,4 +1,5 @@
 const InterviewSession = require("../models/InterviewSession");
+const PreCodeAssessment = require("../models/PreCodeAssessment");
 const Report = require("../models/Report");
 const Setting = require("../models/Setting");
 const ReportGenerator =
@@ -31,6 +32,7 @@ const {
 } = require("../services/interviewEngine");
 const { rephraseQuestion } = require("../services/llmClient");
 const { interviewGraph } = require("../services/langGraphInterviewEngine");
+const { compareAcrossRounds } = require("../services/crossRoundComparisonService");
 
 const AUDIO_ANSWER_ROOT = path.join(__dirname, "..", "..", "uploads", "interview-answers");
 const EXPECTED_INTERVIEW_QUESTION_COUNT = 10;
@@ -373,17 +375,29 @@ const startInterview = async (req, res) => {
       return res.json(toClientInterviewSession(session));
     }
 
+    // Fetch associated PreCodeAssessment for this user & problem
+    const preCode = await PreCodeAssessment.findOne({
+      user: req.user._id,
+      problem: submission.problem._id,
+    }).sort({ createdAt: -1 });
+
     if (!session) {
       // Create a new session
       session = new InterviewSession({
         user: req.user._id,
         submission: submissionId,
         problem: submission.problem._id,
+        preCodeAssessment: preCode?._id || null,
+        preCodeScore: preCode?.preCodeScore ?? null,
+        preCodePassed: preCode?.status === "passed",
         status: "generating",
       });
     } else {
       // Retry failed session
       session.status = "generating";
+      session.preCodeAssessment = preCode?._id || session.preCodeAssessment || null;
+      session.preCodeScore = preCode?.preCodeScore ?? session.preCodeScore ?? null;
+      session.preCodePassed = preCode ? preCode.status === "passed" : session.preCodePassed;
       session.questions = [];
       session.answers = [];
       session.counts = { basic: 0, intermediate: 0, hard: 0 };
@@ -395,7 +409,7 @@ const startInterview = async (req, res) => {
     }
     await session.save();
 
-    // Call Agent 2 to generate questions based on the code and topic
+    // Call Agent 2 to generate questions based on the code, topic, and Round 1 intent
     const topic = `${submission.problem.title}: ${submission.problem.description}`;
     let generationResult;
 
@@ -403,6 +417,7 @@ const startInterview = async (req, res) => {
       generationResult = await generateQuestionsV2({
         code: submission.code,
         topic: topic,
+        round1Intent: preCode?.intentProfile || null,
       });
     } catch (err) {
       const generationError = err instanceof Error ? err : new Error(String(err));
@@ -814,7 +829,7 @@ const completeInterview = async (req, res) => {
 
     const interviewScore = scoredAnswers > 0 ? Math.round((totalScore / (scoredAnswers * 5)) * 100) : 0;
     
-    // Calculate Coding Score
+    // Calculate Coding Score (Round 2)
     let codingScore = 0;
     const testCases = session.submission?.testCaseResults || [];
     if (testCases.length > 0) {
@@ -827,45 +842,122 @@ const completeInterview = async (req, res) => {
         const passed = visibleTests.filter(tc => tc.passed).length;
         codingScore = Math.round((passed / visibleTests.length) * 100);
       }
+    } else if (session.submission?.status === "Accepted") {
+      codingScore = 100;
     }
 
+    // Retrieve Pre-Code Assessment (Round 1)
+    let preCode = null;
+    if (session.preCodeAssessment) {
+      preCode = await PreCodeAssessment.findById(session.preCodeAssessment);
+    }
+    if (!preCode && session.user && session.problem) {
+      preCode = await PreCodeAssessment.findOne({
+        user: session.user,
+        problem: session.problem._id || session.problem,
+      }).sort({ createdAt: -1 });
+    }
+
+    let preCodeScore = typeof preCode?.preCodeScore === "number" ? preCode.preCodeScore : null;
+    if (preCodeScore === null) {
+      if (preCode?.rubricSummary && preCode.rubricSummary.length > 0) {
+        let totalRubricPoints = 0;
+        preCode.rubricSummary.forEach((r) => {
+          if (r.rating === "strong") totalRubricPoints += 100;
+          else if (r.rating === "average") totalRubricPoints += 70;
+          else totalRubricPoints += 35;
+        });
+        preCodeScore = Math.round(totalRubricPoints / preCode.rubricSummary.length);
+      } else if (preCode) {
+        preCodeScore = preCode.status === "passed" ? 80 : 50;
+      } else {
+        preCodeScore = 50;
+      }
+    }
+
+    // Run Cross-Round Comparison (Round 1 Intent vs Round 2 Code vs Round 3 Defense)
+    let crossComparison = null;
+    try {
+      crossComparison = await compareAcrossRounds({
+        preCodeAssessment: preCode,
+        submission: session.submission,
+        interviewSession: session,
+        problem: session.problem,
+      });
+    } catch (crossErr) {
+      console.warn("[CompleteInterview] Cross-round comparison error:", crossErr);
+      crossComparison = {
+        alignmentScore: 80,
+        summary: "Cross-round strategic consistency evaluated.",
+        comparisons: [],
+        consistencyRating: "Moderate",
+        pivotsIdentified: [],
+      };
+    }
+
+    const alignmentScore = crossComparison?.alignmentScore ?? 80;
+
+    session.preCodeAssessment = preCode?._id || session.preCodeAssessment || null;
+    session.preCodeScore = preCodeScore;
+    session.preCodePassed = preCode ? (preCode.status === "passed" || preCodeScore >= 50) : true;
     session.codingScore = codingScore;
     session.interviewScore = interviewScore;
+    session.alignmentScore = alignmentScore;
     session.codingPassed = codingScore >= 50;
     session.interviewPassed = interviewScore >= 50;
-    session.overallPassed = session.codingPassed && session.interviewPassed;
-    
 
-    session.overallScore =
-      scoredAnswers > 0
-        ? Math.round((codingScore * 0.3) + (interviewScore * 0.7))
-        : null;
+    // 3-Round Weighted Composite Score:
+    // Round 1 (Pre-Coding Intent): 25%
+    // Round 2 (Code Execution): 35%
+    // Round 3 (Interview Defense): 25%
+    // Cross-Round Strategic Consistency / Alignment: 15%
+    const computedOverall = Math.round(
+      (preCodeScore * 0.25) +
+      (codingScore * 0.35) +
+      (interviewScore * 0.25) +
+      (alignmentScore * 0.15)
+    );
+
+    session.overallScore = scoredAnswers > 0 ? computedOverall : null;
+    session.overallPassed = Boolean(
+      session.preCodePassed &&
+      session.codingPassed &&
+      session.interviewPassed &&
+      (session.overallScore ?? 0) >= 55
+    );
+
+    session.roundScores = {
+      round1PreCoding: preCodeScore,
+      round2Coding: codingScore,
+      round3Interview: interviewScore,
+      alignmentIndex: alignmentScore,
+      weights: {
+        round1: 0.25,
+        round2: 0.35,
+        round3: 0.25,
+        alignment: 0.15,
+      },
+    };
+    session.crossRoundComparison = crossComparison;
+    session.markModified("roundScores");
+    session.markModified("crossRoundComparison");
 
     const recruiterReport =
       ReportGenerator.generateReport({
           session,
+          preCodeAssessment: preCode,
+          crossRoundComparison: crossComparison,
           candidateProfile:
-
               session.candidateProfile ||
-
               session.interviewState?.candidateProfile ||
-
               {},
-
           conceptGraph:
-
               session.conceptGraph ||
-
               session.interviewState?.conceptGraph ||
-
               {},
-
           evidenceStore:
-
               session.evidenceStore ||
-
               session.interviewState?.evidenceStore ||
-
               {}
       });
       session.report = recruiterReport;
@@ -1092,13 +1184,27 @@ const getSessionStatus = async (req, res) => {
 const getInterviewSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const session = await InterviewSession.findOne({
+    let session = await InterviewSession.findOne({
       _id: sessionId,
       user: req.user._id,
-    }).populate("problem").populate("submission");
+    })
+      .populate("problem")
+      .populate("submission")
+      .populate("preCodeAssessment");
 
     if (!session) {
       return res.status(404).json({ message: "Session not found." });
+    }
+
+    if (!session.preCodeAssessment && session.problem) {
+      const preCode = await PreCodeAssessment.findOne({
+        user: req.user._id,
+        problem: session.problem._id || session.problem,
+      }).sort({ createdAt: -1 });
+      if (preCode) {
+        session = session.toObject();
+        session.preCodeAssessment = preCode;
+      }
     }
 
     res.json(toClientInterviewSession(session));

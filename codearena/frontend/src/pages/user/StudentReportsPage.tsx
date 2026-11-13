@@ -30,6 +30,7 @@ interface ReportItem {
   grade: string;
   scores: {
     preCoding: {
+      score?: number;
       integrityScore: number;
       status: string;
     };
@@ -45,6 +46,10 @@ interface ReportItem {
       passed: boolean;
       totalQuestions: number;
       answeredQuestions: number;
+    };
+    alignment?: {
+      score: number;
+      rating: string;
     };
   };
   reportUrl: string;
@@ -238,20 +243,20 @@ export function StudentReportsPage() {
                 </div>
 
                 {/* 3-Round Score Breakdown Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
                   {/* Round 1 Score */}
                   <div className="p-3 rounded-xl border border-border/60 bg-muted/20 text-xs">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold text-foreground flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        Pre-Coding Round
+                        <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                        R1: Pre-Code
                       </span>
-                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                        {report.scores.preCoding.status}
+                      <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-500 border-blue-500/20">
+                        {report.scores.preCoding.score ? `${report.scores.preCoding.score}/100` : report.scores.preCoding.status}
                       </Badge>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Integrity Index: <span className="font-semibold text-foreground">{report.scores.preCoding.integrityScore}%</span>
+                      Status: <span className="font-semibold text-foreground capitalize">{report.scores.preCoding.status}</span> (25% wt)
                     </p>
                   </div>
 
@@ -259,15 +264,15 @@ export function StudentReportsPage() {
                   <div className="p-3 rounded-xl border border-border/60 bg-muted/20 text-xs">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold text-foreground flex items-center gap-1.5">
-                        <Code2 className="w-3.5 h-3.5 text-blue-500" />
-                        Coding Sandbox
+                        <Code2 className="w-3.5 h-3.5 text-emerald-500" />
+                        R2: Coding
                       </span>
-                      <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-500 border-blue-500/20">
-                        Score: {report.scores.coding.score}/100
+                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                        {report.scores.coding.score}/100
                       </Badge>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Test Cases: <span className="font-semibold text-foreground">{report.scores.coding.passedTestCases}/{report.scores.coding.totalTestCases}</span> · Time: {report.scores.coding.executionTime}
+                      Tests: <span className="font-semibold text-foreground">{report.scores.coding.passedTestCases}/{report.scores.coding.totalTestCases}</span> (35% wt)
                     </p>
                   </div>
 
@@ -276,14 +281,30 @@ export function StudentReportsPage() {
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold text-foreground flex items-center gap-1.5">
                         <MessageSquareText className="w-3.5 h-3.5 text-violet-500" />
-                        AI Viva Interview
+                        R3: Viva
                       </span>
                       <Badge variant="outline" className="text-[10px] bg-violet-500/10 text-violet-500 border-violet-500/20">
-                        Score: {report.scores.interview.score}/100
+                        {report.scores.interview.score}/100
                       </Badge>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Questions Evaluated: <span className="font-semibold text-foreground">{report.scores.interview.answeredQuestions}/{report.scores.interview.totalQuestions}</span>
+                      Questions: <span className="font-semibold text-foreground">{report.scores.interview.answeredQuestions}/{report.scores.interview.totalQuestions}</span> (25% wt)
+                    </p>
+                  </div>
+
+                  {/* Cross-Round Consistency */}
+                  <div className="p-3 rounded-xl border border-border/60 bg-muted/20 text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+                        Alignment
+                      </span>
+                      <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/20">
+                        {report.scores.alignment?.score ?? 85}%
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Consistency: <span className="font-semibold text-foreground">{report.scores.alignment?.rating || "High"}</span> (15% wt)
                     </p>
                   </div>
                 </div>

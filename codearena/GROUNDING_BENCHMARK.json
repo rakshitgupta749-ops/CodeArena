@@ -1,0 +1,659 @@
+{
+  "benchmark_version": "1.0.0",
+  "name": "CodeArena Source-Code Grounding & Claim Verification Benchmark",
+  "description": "Frozen evaluation benchmark to assess whether AI-generated interview questions and viva claims are grounded in submitted source code.",
+  "created_at": "2026-10-22T10:15:00Z",
+  "metadata": {
+    "total_cases": 12,
+    "valid_cases": 3,
+    "unsupported_cases": 6,
+    "ambiguous_cases": 3
+  },
+  "cases": [
+    {
+      "id": "GB-01",
+      "name": "Correct question with a valid source anchor",
+      "category": "Grounded Valid Question",
+      "ground_truth_label": "VALID",
+      "sub_type": "VALID_EXACT_ANCHOR",
+      "expected_admission": "ADMIT",
+      "source_code": "public class Employee {\n    private int id;\n    private String name;\n    private String department;\n    private double salary;\n\n    public Employee(int id, String name, String department, double salary) {\n        this.id = id;\n        this.name = name;\n        this.department = department;\n        this.salary = salary;\n    }\n\n    public double getSalary() {\n        return salary;\n    }\n}",
+      "generated_question": {
+        "qid": "C01",
+        "dimension": "Class / Object / Constructor",
+        "difficulty": "Basic",
+        "question": "Looking at your Employee class fields, what access modifiers and data types did you choose for id, name, department, and salary, and why?",
+        "code_anchor": "    private int id;\n    private String name;\n    private String department;\n    private double salary;",
+        "code_line_start": 2,
+        "code_line_end": 5,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: The fields use private access modifiers for encapsulation, and appropriate primitive/reference types: int for ID, String for name and department, and double for salary.",
+        "answer_criteria": [
+          { "point": "Identifies private access modifier for encapsulation", "marks": 3 },
+          { "point": "Explains appropriate data types (int, String, double)", "marks": 2 }
+        ],
+        "scoring_guide": {
+          "full": "Identifies private modifiers and explains types clearly",
+          "partial": "Mentions field names and types without encapsulation rationale",
+          "minimal": "Names one or two fields vaguely",
+          "zero": "Incorrect or irrelevant answer"
+        },
+        "evaluates": "Encapsulation and field declaration choices"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB01-C1",
+          "text": "The candidate declared private fields for id, name, department, and salary in the Employee class.",
+          "evidence_type": "code_declaration",
+          "expected_classification": "SUPPORTED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB01-E1",
+          "start_line": 2,
+          "end_line": 5,
+          "code_text": "private int id;\nprivate String name;\nprivate String department;\nprivate double salary;",
+          "relation": "SUPPORTS"
+        }
+      ],
+      "rationale": "The question directly references fields that exist verbatim with the exact types and access modifiers specified in the anchor.",
+      "adjudication_rule": "Deterministic match: anchor is unique, verified, and supports 100% of claims."
+    },
+    {
+      "id": "GB-02",
+      "name": "Question whose claim contradicts the source code",
+      "category": "Contradicted Claim",
+      "ground_truth_label": "UNSUPPORTED",
+      "sub_type": "CONTRADICTED_BEHAVIOR",
+      "expected_admission": "REJECT",
+      "source_code": "import java.util.*;\n\npublic class TransactionSorter {\n    public List<Integer> sortTransactions(List<Integer> amounts) {\n        List<Integer> sorted = new ArrayList<>(amounts);\n        Collections.sort(sorted, (a, b) -> a - b);\n        return sorted;\n    }\n}",
+      "generated_question": {
+        "qid": "C02",
+        "dimension": "Functions / Methods / Parameters / Return Type",
+        "difficulty": "Intermediate",
+        "question": "Looking at your sortTransactions method, why did you decide to sort the amounts in descending order using your custom comparator?",
+        "code_anchor": "        Collections.sort(sorted, (a, b) -> a - b);",
+        "code_line_start": 6,
+        "code_line_end": 6,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: The lambda comparator (a, b) -> a - b was intended to sort transactions.",
+        "answer_criteria": [
+          { "point": "Explains comparator lambda logic", "marks": 3 },
+          { "point": "Addresses sort ordering", "marks": 2 }
+        ],
+        "scoring_guide": {
+          "full": "Explains comparator order",
+          "partial": "Describes lambda syntax vaguely",
+          "minimal": "Mentions Collections.sort only",
+          "zero": "Off-topic"
+        },
+        "evaluates": "Comparator implementation"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB02-C1",
+          "text": "The candidate implemented sortTransactions using Collections.sort with a custom comparator.",
+          "evidence_type": "code_invocation",
+          "expected_classification": "SUPPORTED"
+        },
+        {
+          "claim_id": "GB02-C2",
+          "text": "The comparator sorts transaction amounts in descending order.",
+          "evidence_type": "code_semantics",
+          "expected_classification": "CONTRADICTED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB02-E1",
+          "start_line": 6,
+          "end_line": 6,
+          "code_text": "Collections.sort(sorted, (a, b) -> a - b);",
+          "relation": "CONTRADICTS (Lambda a - b produces natural ascending order, not descending)"
+        }
+      ],
+      "rationale": "The question asserts that the candidate sorted in descending order, whereas (a, b) -> a - b sorts in ascending order. Admitting this question causes candidate confusion and evaluates them on a false premise.",
+      "adjudication_rule": "Semantic contradiction: Any question asserting a factual property contrary to code AST/runtime semantics must be rejected."
+    },
+    {
+      "id": "GB-03",
+      "name": "Question referencing a nonexistent function or variable",
+      "category": "Nonexistent Entity",
+      "ground_truth_label": "UNSUPPORTED",
+      "sub_type": "NONEXISTENT_FUNCTION",
+      "expected_admission": "REJECT",
+      "source_code": "public class InventorySystem {\n    private int stockCount;\n\n    public InventorySystem(int initialStock) {\n        this.stockCount = initialStock;\n    }\n\n    public void restock(int amount) {\n        if (amount > 0) stockCount += amount;\n    }\n\n    public int getStock() {\n        return stockCount;\n    }\n}",
+      "generated_question": {
+        "qid": "C03",
+        "dimension": "Functions / Methods / Parameters / Return Type",
+        "difficulty": "Intermediate",
+        "question": "In your applyDiscount(double percentage) method, what validation do you perform to ensure the discounted price never falls below zero?",
+        "code_anchor": "    public void applyDiscount(double percentage) {\n        if (percentage > 0 && percentage <= 100) {\n            price -= price * (percentage / 100.0);\n        }\n    }",
+        "code_line_start": null,
+        "code_line_end": null,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: The method validates percentage range and checks lower bounds.",
+        "answer_criteria": [
+          { "point": "Mentions boundary check on discount", "marks": 3 },
+          { "point": "Addresses negative price guard", "marks": 2 }
+        ],
+        "scoring_guide": {
+          "full": "Explains bounds validation",
+          "partial": "Describes percentage arithmetic",
+          "minimal": "Vague answer",
+          "zero": "Unrelated"
+        },
+        "evaluates": "Discount validation"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB03-C1",
+          "text": "The candidate's solution contains a method named applyDiscount(double percentage).",
+          "evidence_type": "method_signature",
+          "expected_classification": "CONTRADICTED"
+        }
+      ],
+      "evidence_spans": [],
+      "rationale": "applyDiscount does not exist in the candidate's code. The LLM hallucinated the method entirely.",
+      "adjudication_rule": "Nonexistent symbol: If anchor or question references a class, method, or variable absent from the AST, question must be rejected."
+    },
+    {
+      "id": "GB-04",
+      "name": "Question with an anchor that resolves to unrelated code",
+      "category": "Unrelated Code Anchor",
+      "ground_truth_label": "UNSUPPORTED",
+      "sub_type": "UNRELATED_ANCHOR",
+      "expected_admission": "REJECT",
+      "source_code": "public class GridExplorer {\n    public int countValidCells(int[][] grid) {\n        int count = 0;\n        for (int r = 0; r < grid.length; r++) {\n            for (int c = 0; c < grid[0].length; c++) {\n                if (isValidCell(grid, r, c)) count++;\n            }\n        }\n        return count;\n    }\n\n    private boolean isValidCell(int[][] grid, int r, int c) {\n        return r >= 0 && r < grid.length && c >= 0 && c < grid[0].length && grid[r][c] > 0;\n    }\n}",
+      "generated_question": {
+        "qid": "C04",
+        "dimension": "Control Structures / Loops",
+        "difficulty": "Intermediate",
+        "question": "Can you explain how your isValidCell method validates matrix boundary conditions to prevent IndexOutOfBoundsException?",
+        "code_anchor": "        for (int r = 0; r < grid.length; r++) {\n            for (int c = 0; c < grid[0].length; c++) {",
+        "code_line_start": 4,
+        "code_line_end": 5,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: Boundary checks ensure r and c stay within 0 and grid dimensions.",
+        "answer_criteria": [
+          { "point": "Identifies r and c index validation", "marks": 3 },
+          { "point": "Explains bounds checking avoids exception", "marks": 2 }
+        ],
+        "scoring_guide": {
+          "full": "Explains boundary validation in isValidCell",
+          "partial": "Describes matrix indexing",
+          "minimal": "Vague loop description",
+          "zero": "Unrelated"
+        },
+        "evaluates": "Boundary checks in helper method"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB04-C1",
+          "text": "The provided code anchor illustrates the boundary validation logic of isValidCell.",
+          "evidence_type": "anchor_relevance",
+          "expected_classification": "CONTRADICTED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB04-E1",
+          "start_line": 4,
+          "end_line": 5,
+          "code_text": "for (int r = 0; r < grid.length; r++) {\n    for (int c = 0; c < grid[0].length; c++) {",
+          "relation": "UNRELATED (Shows nested traversal, does not show isValidCell boundary validation logic)"
+        }
+      ],
+      "rationale": "The anchor points to the traversal loops in countValidCells, but the question asks the student to explain the boundary checking logic inside isValidCell (lines 12-14). The anchor does not display the code under question.",
+      "adjudication_rule": "Anchor mismatch: The code displayed must be the exact code required to answer the question."
+    },
+    {
+      "id": "GB-05",
+      "name": "Question whose anchor exists lexically but does not support the claim",
+      "category": "Insufficient Anchor Evidence",
+      "ground_truth_label": "UNSUPPORTED",
+      "sub_type": "INSUFFICIENT_ANCHOR",
+      "expected_admission": "REJECT",
+      "source_code": "public class BankAccount {\n    private double balance;\n\n    public BankAccount(double balance) {\n        this.balance = balance;\n    }\n\n    public boolean withdraw(double amount) {\n        if (balance >= amount) {\n            balance -= amount;\n            return true;\n        }\n        return false;\n    }\n}",
+      "generated_question": {
+        "qid": "C05",
+        "dimension": "Functions / Methods / Parameters / Return Type",
+        "difficulty": "Intermediate",
+        "question": "I see you incorporated transactional audit logging and automatic rollback logic in your withdraw method. How does your rollback mechanism restore balance if an audit event fails?",
+        "code_anchor": "    public boolean withdraw(double amount) {\n        if (balance >= amount) {\n            balance -= amount;\n            return true;\n        }\n        return false;\n    }",
+        "code_line_start": 8,
+        "code_line_end": 14,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: The rollback mechanism catches logging errors and re-credits balance.",
+        "answer_criteria": [
+          { "point": "Explains rollback catch block", "marks": 3 },
+          { "point": "Addresses audit event consistency", "marks": 2 }
+        ],
+        "scoring_guide": {
+          "full": "Explains rollback and logging",
+          "partial": "Describes balance subtraction only",
+          "minimal": "Vague response",
+          "zero": "Irrelevant"
+        },
+        "evaluates": "Transactional safety"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB05-C1",
+          "text": "The withdraw method exists with balance checking and subtraction.",
+          "evidence_type": "code_method",
+          "expected_classification": "SUPPORTED"
+        },
+        {
+          "claim_id": "GB05-C2",
+          "text": "The withdraw method contains transactional audit logging and rollback logic.",
+          "evidence_type": "code_semantics",
+          "expected_classification": "CONTRADICTED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB05-E1",
+          "start_line": 8,
+          "end_line": 14,
+          "code_text": "public boolean withdraw(double amount) {\n    if (balance >= amount) {\n        balance -= amount;\n        return true;\n    }\n    return false;\n}",
+          "relation": "EVIDENCE (Shows plain subtraction, contains zero logging, zero transactions, zero rollbacks)"
+        }
+      ],
+      "rationale": "The anchor lines exist verbatim, but the LLM hallucinated complex transactional logging and rollback semantics that are completely absent from the code.",
+      "adjudication_rule": "Hallucinated feature on real anchor: Anchor match alone is insufficient; claims must be supported by the text within the anchor."
+    },
+    {
+      "id": "GB-06",
+      "name": "Question requiring relevant dependency or control-flow context",
+      "category": "Context-Dependent Control Flow",
+      "ground_truth_label": "AMBIGUOUS",
+      "sub_type": "CONTEXT_DEPENDENT",
+      "expected_admission": "MANUAL_REVIEW",
+      "source_code": "import java.util.*;\n\npublic class FastSearcher {\n    private List<String> catalog;\n\n    public FastSearcher(List<String> rawCatalog) {\n        this.catalog = new ArrayList<>(rawCatalog);\n        Collections.sort(this.catalog);\n    }\n\n    public boolean exists(String item) {\n        int idx = Collections.binarySearch(catalog, item);\n        return idx >= 0;\n    }\n}",
+      "generated_question": {
+        "qid": "C06",
+        "dimension": "Functions / Methods / Parameters / Return Type",
+        "difficulty": "Intermediate",
+        "question": "In your exists method, you execute Collections.binarySearch. How do you guarantee the essential precondition required for binary search is met?",
+        "code_anchor": "    public boolean exists(String item) {\n        int idx = Collections.binarySearch(catalog, item);\n        return idx >= 0;\n    }",
+        "code_line_start": 11,
+        "code_line_end": 14,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: The precondition is that catalog is sorted, which is guaranteed because the constructor sorts catalog during initialization.",
+        "answer_criteria": [
+          { "point": "Identifies binary search requires sorted collection", "marks": 3 },
+          { "point": "Identifies sorting occurs in constructor", "marks": 2 }
+        ],
+        "scoring_guide": {
+          "full": "Identifies precondition and points to constructor sorting",
+          "partial": "Mentions collection must be sorted without referencing constructor",
+          "minimal": "Vague binary search explanation",
+          "zero": "Incorrect"
+        },
+        "evaluates": "Binary search preconditions"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB06-C1",
+          "text": "The exists method invokes Collections.binarySearch(catalog, item).",
+          "evidence_type": "code_invocation",
+          "expected_classification": "SUPPORTED"
+        },
+        {
+          "claim_id": "GB06-C2",
+          "text": "The precondition (sorted catalog) is satisfied through non-local context outside exists().",
+          "evidence_type": "interprocedural_context",
+          "expected_classification": "UNRESOLVED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB06-E1",
+          "start_line": 8,
+          "end_line": 8,
+          "code_text": "Collections.sort(this.catalog);",
+          "relation": "INTERPROCEDURAL_CONTEXT (In constructor, outside anchor)"
+        },
+        {
+          "span_id": "GB06-E2",
+          "start_line": 11,
+          "end_line": 14,
+          "code_text": "public boolean exists(String item) {\n    int idx = Collections.binarySearch(catalog, item);\n    return idx >= 0;\n}",
+          "relation": "ANCHOR"
+        }
+      ],
+      "rationale": "The question is technically sound and grounded in the class architecture, but answering it properly requires interprocedural reasoning connecting exists() back to line 8 in the constructor.",
+      "adjudication_rule": "Interprocedural dependency: Questions relying on class-level invariants established outside the local anchor should be flagged for manual review or require expanded multi-span anchors."
+    },
+    {
+      "id": "GB-07",
+      "name": "Question with insufficient evidence to decide",
+      "category": "External Dependency / Insufficient Evidence",
+      "ground_truth_label": "AMBIGUOUS",
+      "sub_type": "INSUFFICIENT_EVIDENCE",
+      "expected_admission": "MANUAL_REVIEW",
+      "source_code": "public class ConfigManager {\n    public String loadRemoteConfig(String endpoint) {\n        return ExternalClient.fetch(endpoint);\n    }\n}",
+      "generated_question": {
+        "qid": "C07",
+        "dimension": "Functions / Methods / Parameters / Return Type",
+        "difficulty": "Advanced",
+        "question": "Looking at loadRemoteConfig, what connection timeout is configured on the underlying HTTP socket pool in ExternalClient?",
+        "code_anchor": "    public String loadRemoteConfig(String endpoint) {\n        return ExternalClient.fetch(endpoint);\n    }",
+        "code_line_start": 2,
+        "code_line_end": 4,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: Explains socket timeout configuration.",
+        "answer_criteria": [
+          { "point": "Addresses socket timeout configuration", "marks": 5 }
+        ],
+        "scoring_guide": {
+          "full": "Explains timeout parameters",
+          "partial": "Mentions network latency",
+          "minimal": "Vague answer",
+          "zero": "Unrelated"
+        },
+        "evaluates": "Network configuration"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB07-C1",
+          "text": "The candidate invokes ExternalClient.fetch(endpoint).",
+          "evidence_type": "code_invocation",
+          "expected_classification": "SUPPORTED"
+        },
+        {
+          "claim_id": "GB07-C2",
+          "text": "The underlying socket pool timeout can be determined from the submitted source code.",
+          "evidence_type": "external_dependency",
+          "expected_classification": "UNRESOLVED"
+        }
+      ],
+      "evidence_spans": [],
+      "rationale": "The candidate wrote a one-line delegation to an external class. Neither the code nor the candidate's repository provides the implementation of ExternalClient. The question assumes internal knowledge unavailable in the submission.",
+      "adjudication_rule": "Unresolvable external state: Claims that depend entirely on unsubmitted external binaries or services cannot be validated and must be abstained upon."
+    },
+    {
+      "id": "GB-08",
+      "name": "Semantically equivalent question using different wording",
+      "category": "Paraphrased Valid Question",
+      "ground_truth_label": "VALID",
+      "sub_type": "VALID_PARAPHRASED",
+      "expected_admission": "ADMIT",
+      "source_code": "public class Employee {\n    private int id;\n    private String name;\n    private String department;\n    private double salary;\n\n    public Employee(int id, String name, String department, double salary) {\n        this.id = id;\n        this.name = name;\n        this.department = department;\n        this.salary = salary;\n    }\n}",
+      "generated_question": {
+        "qid": "C08",
+        "dimension": "Class / Object / Constructor",
+        "difficulty": "Basic",
+        "question": "Why did you declare the member variables id, name, department, and salary with private access rather than public in your Employee class?",
+        "code_anchor": "    private int id;\n    private String name;\n    private String department;\n    private double salary;",
+        "code_line_start": 2,
+        "code_line_end": 5,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: Private variables protect object state from direct external modification and maintain encapsulation.",
+        "answer_criteria": [
+          { "point": "Identifies encapsulation and data protection", "marks": 3 },
+          { "point": "Explains prevention of unauthorized field access", "marks": 2 }
+        ],
+        "scoring_guide": {
+          "full": "Clear explanation of encapsulation and private fields",
+          "partial": "Mentions security without explaining encapsulation",
+          "minimal": "Vague response",
+          "zero": "Irrelevant"
+        },
+        "evaluates": "Encapsulation concept"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB08-C1",
+          "text": "The candidate encapsulated id, name, department, and salary as private fields.",
+          "evidence_type": "code_declaration",
+          "expected_classification": "SUPPORTED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB08-E1",
+          "start_line": 2,
+          "end_line": 5,
+          "code_text": "private int id;\nprivate String name;\nprivate String department;\nprivate double salary;",
+          "relation": "SUPPORTS"
+        }
+      ],
+      "rationale": "Paraphrase of GB-01 testing whether different phrasing of an identical valid claim remains properly grounded.",
+      "adjudication_rule": "Semantic invariance: Rephrased questions with identical claims against the same verified anchor must produce identical admission."
+    },
+    {
+      "id": "GB-09",
+      "name": "Multiple possible source anchors (Duplicate code snippets)",
+      "category": "Ambiguous / Duplicate Anchor",
+      "ground_truth_label": "AMBIGUOUS",
+      "sub_type": "MULTIPLE_ANCHORS",
+      "expected_admission": "REJECT",
+      "source_code": "public class BinaryTree {\n    public void inorder(TreeNode node) {\n        if (node == null) return;\n        inorder(node.left);\n        System.out.println(node.val);\n        inorder(node.right);\n    }\n\n    public void preorder(TreeNode node) {\n        if (node == null) return;\n        System.out.println(node.val);\n        preorder(node.left);\n        preorder(node.right);\n    }\n}",
+      "generated_question": {
+        "qid": "C09",
+        "dimension": "Control Structures / Loops",
+        "difficulty": "Basic",
+        "question": "What is the purpose of this base-case check in your recursive tree traversal?",
+        "code_anchor": "        if (node == null) return;",
+        "code_line_start": 3,
+        "code_line_end": 3,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: The null check serves as the base case to terminate recursion on leaf nodes.",
+        "answer_criteria": [
+          { "point": "Identifies base case termination", "marks": 3 },
+          { "point": "Explains preventing NullPointerException", "marks": 2 }
+        ],
+        "scoring_guide": {
+          "full": "Identifies base case and recursion termination",
+          "partial": "Mentions null check only",
+          "minimal": "Vague answer",
+          "zero": "Irrelevant"
+        },
+        "evaluates": "Recursive base case"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB09-C1",
+          "text": "The anchor snippet if (node == null) return; uniquely identifies the target code line.",
+          "evidence_type": "anchor_uniqueness",
+          "expected_classification": "CONTRADICTED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB09-E1",
+          "start_line": 3,
+          "end_line": 3,
+          "code_text": "if (node == null) return;",
+          "relation": "MATCH_1 (In inorder method)"
+        },
+        {
+          "span_id": "GB09-E2",
+          "start_line": 11,
+          "end_line": 11,
+          "code_text": "if (node == null) return;",
+          "relation": "MATCH_2 (In preorder method)"
+        }
+      ],
+      "rationale": "The anchor text occurs at two distinct locations in the source code. Without method context, the anchor is ambiguous and violates CodeArena's unique-anchor requirement.",
+      "adjudication_rule": "Ambiguous anchor: Any question with non-unique anchor matches must be rejected unless expanded with enclosing method context."
+    },
+    {
+      "id": "GB-10",
+      "name": "Code changes that invalidate a previously valid anchor",
+      "category": "Invalidated Anchor / Refactored Code",
+      "ground_truth_label": "UNSUPPORTED",
+      "sub_type": "INVALIDATED_ANCHOR",
+      "expected_admission": "REJECT",
+      "source_code": "public class LinkedListReverser {\n    public ListNode reverse(ListNode head) {\n        ListNode prev = null;\n        for (ListNode curr = head; curr != null; ) {\n            ListNode next = curr.next;\n            curr.next = prev;\n            prev = curr;\n            curr = next;\n        }\n        return prev;\n    }\n}",
+      "generated_question": {
+        "qid": "C10",
+        "dimension": "Control Structures / Loops",
+        "difficulty": "Intermediate",
+        "question": "In your while loop, why did you decide to use an explicit while loop instead of a for loop to advance the pointer?",
+        "code_anchor": "        while (curr != null) {\n            ListNode next = curr.next;\n            curr.next = prev;\n            prev = curr;\n            curr = next;\n        }",
+        "code_line_start": 4,
+        "code_line_end": 9,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: Explains pointer manipulation in while loop.",
+        "answer_criteria": [
+          { "point": "Addresses pointer manipulation", "marks": 5 }
+        ],
+        "scoring_guide": {
+          "full": "Explains pointer reversal",
+          "partial": "Vague loop description",
+          "minimal": "Irrelevant answer",
+          "zero": "Blank"
+        },
+        "evaluates": "Loop choice"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB10-C1",
+          "text": "The candidate used a while loop to traverse the linked list.",
+          "evidence_type": "code_syntax",
+          "expected_classification": "CONTRADICTED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB10-E1",
+          "start_line": 4,
+          "end_line": 4,
+          "code_text": "for (ListNode curr = head; curr != null; ) {",
+          "relation": "CONTRADICTS (Candidate refactored while into a for loop)"
+        }
+      ],
+      "rationale": "The anchor reflects a prior draft where the candidate had written a while loop. The candidate submitted a refactored for loop. The question and anchor are stale and no longer grounded.",
+      "adjudication_rule": "Stale anchor: Anchor must match the active submitted version of the code, not an intermediate revision."
+    },
+    {
+      "id": "GB-11",
+      "name": "Valid question about an algorithmic trade-off",
+      "category": "Algorithmic Trade-off Grounded",
+      "ground_truth_label": "VALID",
+      "sub_type": "VALID_ALGORITHMIC_TRADEOFF",
+      "expected_admission": "ADMIT",
+      "source_code": "import java.util.*;\n\npublic class TwoSumSolver {\n    public int[] findTwoSum(int[] numbers, int target) {\n        Map<Integer, Integer> complementMap = new HashMap<>();\n        for (int i = 0; i < numbers.length; i++) {\n            int complement = target - numbers[i];\n            if (complementMap.containsKey(complement)) {\n                return new int[]{complementMap.get(complement), i};\n            }\n            complementMap.put(numbers[i], i);\n        }\n        return new int[]{-1, -1};\n    }\n}",
+      "generated_question": {
+        "qid": "C11",
+        "dimension": "Array / ArrayList",
+        "difficulty": "Intermediate",
+        "question": "You used a HashMap to reduce time complexity to O(N). What trade-off in space complexity did this introduce compared to a brute-force approach?",
+        "code_anchor": "        Map<Integer, Integer> complementMap = new HashMap<>();\n        for (int i = 0; i < numbers.length; i++) {\n            int complement = target - numbers[i];\n            if (complementMap.containsKey(complement)) {\n                return new int[]{complementMap.get(complement), i};\n            }\n            complementMap.put(numbers[i], i);\n        }",
+        "code_line_start": 5,
+        "code_line_end": 12,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: The HashMap introduces O(N) auxiliary space complexity in exchange for reducing search time from O(N^2) to O(N).",
+        "answer_criteria": [
+          { "point": "Identifies O(N) auxiliary space overhead", "marks": 3 },
+          { "point": "Contrasts with O(1) space of brute force", "marks": 2 }
+        ],
+        "scoring_guide": {
+          "full": "Clearly explains space vs time complexity trade-off",
+          "partial": "Mentions extra memory without Big-O specifics",
+          "minimal": "Vague answer",
+          "zero": "Irrelevant"
+        },
+        "evaluates": "Time-space complexity trade-off"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB11-C1",
+          "text": "The candidate implemented an auxiliary HashMap to store complements in findTwoSum.",
+          "evidence_type": "code_instantiation",
+          "expected_classification": "SUPPORTED"
+        },
+        {
+          "claim_id": "GB11-C2",
+          "text": "The implementation achieves linear O(N) time with auxiliary space trade-off.",
+          "evidence_type": "algorithmic_complexity",
+          "expected_classification": "SUPPORTED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB11-E1",
+          "start_line": 5,
+          "end_line": 12,
+          "code_text": "Map<Integer, Integer> complementMap = new HashMap<>();\nfor (int i = 0; i < numbers.length; i++) {\n    int complement = target - numbers[i];\n    if (complementMap.containsKey(complement)) {\n        return new int[]{complementMap.get(complement), i};\n    }\n    complementMap.put(numbers[i], i);\n}",
+          "relation": "SUPPORTS"
+        }
+      ],
+      "rationale": "Both the structural usage of HashMap and the theoretical complexity trade-off directly align with the submitted implementation.",
+      "adjudication_rule": "Grounded complexity trade-off: Questions probing trade-offs inherent in visible data structure selections are valid."
+    },
+    {
+      "id": "GB-12",
+      "name": "Question with several claims where only one is unsupported",
+      "category": "Partially Unsupported / Multi-Claim",
+      "ground_truth_label": "UNSUPPORTED",
+      "sub_type": "PARTIALLY_UNSUPPORTED",
+      "expected_admission": "REJECT",
+      "source_code": "public class EmailValidator {\n    public boolean isValid(String email) {\n        if (email == null || email.length() > 254) {\n            return false;\n        }\n        return email.matches(\"^[A-Za-z0-9+_.-]+@(.+)$\");\n    }\n}",
+      "generated_question": {
+        "qid": "C12",
+        "dimension": "Control Structures / Loops",
+        "difficulty": "Advanced",
+        "question": "In your isValid method, you verify non-null inputs, enforce a 254-character length cap, and query external DNS MX records. How do you handle DNS timeouts when resolving domains?",
+        "code_anchor": "    public boolean isValid(String email) {\n        if (email == null || email.length() > 254) {\n            return false;\n        }\n        return email.matches(\"^[A-Za-z0-9+_.-]+@(.+)$\");\n    }",
+        "code_line_start": 2,
+        "code_line_end": 7,
+        "source": "submitted_code_llm",
+        "rubric": "Expected spoken answer: Explains handling of DNS MX lookup timeouts.",
+        "answer_criteria": [
+          { "point": "Addresses null and length checks", "marks": 2 },
+          { "point": "Explains DNS MX timeout handling", "marks": 3 }
+        ],
+        "scoring_guide": {
+          "full": "Explains regex and DNS handling",
+          "partial": "Addresses regex only",
+          "minimal": "Vague response",
+          "zero": "Irrelevant"
+        },
+        "evaluates": "Validation and network resilience"
+      },
+      "decomposed_claims": [
+        {
+          "claim_id": "GB12-C1",
+          "text": "The candidate checks for null inputs.",
+          "evidence_type": "code_condition",
+          "expected_classification": "SUPPORTED"
+        },
+        {
+          "claim_id": "GB12-C2",
+          "text": "The candidate enforces a 254-character length limit.",
+          "evidence_type": "code_condition",
+          "expected_classification": "SUPPORTED"
+        },
+        {
+          "claim_id": "GB12-C3",
+          "text": "The candidate queries external DNS servers for MX records.",
+          "evidence_type": "code_invocation",
+          "expected_classification": "CONTRADICTED"
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "GB12-E1",
+          "start_line": 3,
+          "end_line": 5,
+          "code_text": "if (email == null || email.length() > 254) {\n    return false;\n}",
+          "relation": "SUPPORTS (Claims 1 & 2)"
+        },
+        {
+          "span_id": "GB12-E2",
+          "start_line": 6,
+          "end_line": 6,
+          "code_text": "return email.matches(\"^[A-Za-z0-9+_.-]+@(.+)$\");",
+          "relation": "CONTRADICTS (Claim 3: only regex pattern matching is performed; zero DNS lookup code exists)"
+        }
+      ],
+      "rationale": "Two claims are true, but one critical technical claim (DNS MX query) is completely fabricated. A question with even one ungrounded material claim must be rejected because it leads the interviewer to evaluate a nonexistent implementation.",
+      "adjudication_rule": "Strict claim conjunction: A question is admitted if and only if ALL of its material technical claims are grounded. Partial grounding is treated as UNSUPPORTED."
+    }
+  ]
+}

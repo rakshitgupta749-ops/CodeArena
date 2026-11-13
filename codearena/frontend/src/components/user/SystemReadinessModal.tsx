@@ -14,24 +14,11 @@ import {
   AlertCircle,
   Loader2,
   Mic,
-  Camera,
   Monitor,
-  Cpu,
-  Wifi,
   ShieldCheck,
   RefreshCw,
 } from "lucide-react";
-import { api } from "@/lib/api";
-
-interface SystemHealthResponse {
-  status: string;
-  services: {
-    database: { status: string; label: string; latency: string };
-    pistonSandbox: { status: string; label: string; latency: string };
-    aiEvaluationEngine: { status: string; label: string; latency: string };
-    proctoringEngine: { status: string; label: string; latency: string };
-  };
-}
+import { cn } from "@/lib/utils";
 
 interface SystemReadinessModalProps {
   open: boolean;
@@ -40,19 +27,13 @@ interface SystemReadinessModalProps {
 
 export function SystemReadinessModal({ open, onOpenChange }: SystemReadinessModalProps) {
   const [testing, setTesting] = useState(false);
-  const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(null);
 
-  // Hardware states
+  // Microphone state
   const [micLevel, setMicLevel] = useState(0);
   const [micStatus, setMicStatus] = useState<"pending" | "success" | "error">("pending");
   const [micErrorMsg, setMicErrorMsg] = useState("");
 
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraStatus, setCameraStatus] = useState<"pending" | "success" | "error">("pending");
-  const [cameraErrorMsg, setCameraErrorMsg] = useState("");
-
-  // Streams
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  // Streams & Audio Context refs
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -94,7 +75,6 @@ export function SystemReadinessModal({ open, onOpenChange }: SystemReadinessModa
       audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
-    setCameraActive(false);
     setMicLevel(0);
   };
 
@@ -119,112 +99,84 @@ export function SystemReadinessModal({ open, onOpenChange }: SystemReadinessModa
     });
   };
 
-  const runAllChecks = async () => {
-    setTesting(true);
-    detectBrowser();
-
-    // Fetch backend system check
-    try {
-      const res = await api.get<SystemHealthResponse>("/student/system-check");
-      setSystemHealth(res);
-    } catch {
-      setSystemHealth({
-        status: "operational",
-        services: {
-          database: { status: "connected", label: "MongoDB Data Store", latency: "6ms" },
-          pistonSandbox: { status: "connected", label: "Piston Code Sandbox", latency: "22ms" },
-          aiEvaluationEngine: { status: "connected", label: "Agentic AI Viva Evaluator", latency: "48ms" },
-          proctoringEngine: { status: "active", label: "Real-time Proctoring Sentinel", latency: "14ms" },
-        },
-      });
-    }
-
-    // Auto-test mic and camera
-    await testMedia();
-    setTesting(false);
-  };
-
-  const testMedia = async () => {
+  const testMic = async () => {
     try {
       setMicStatus("pending");
-      setCameraStatus("pending");
+      setMicErrorMsg("");
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setMicStatus("error");
+        setMicErrorMsg("Microphone API is not supported in this browser.");
+        return;
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
-        video: { width: { ideal: 640 }, height: { ideal: 360 } },
       });
 
       mediaStreamRef.current = stream;
 
-      // Camera
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(() => {});
-      }
-      setCameraActive(true);
-      setCameraStatus("success");
-
       // Mic volume analysis
-      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-      audioContextRef.current = audioCtx;
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      const source = audioCtx.createMediaStreamSource(stream);
-      source.connect(analyser);
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
 
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const updateVolume = () => {
-        if (!mediaStreamRef.current) return;
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
-        const avg = sum / dataArray.length;
-        const normalized = Math.min(100, Math.round((avg / 128) * 100));
-        setMicLevel(normalized);
-        animFrameRef.current = requestAnimationFrame(updateVolume);
-      };
-      updateVolume();
+      if (AudioContextClass) {
+        const audioCtx = new AudioContextClass();
+        audioContextRef.current = audioCtx;
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        const source = audioCtx.createMediaStreamSource(stream);
+        source.connect(analyser);
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const updateVolume = () => {
+          if (!mediaStreamRef.current) return;
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i];
+          }
+          const avg = sum / dataArray.length;
+          const normalized = Math.min(100, Math.round((avg / 128) * 100));
+          setMicLevel(normalized);
+          animFrameRef.current = requestAnimationFrame(updateVolume);
+        };
+        updateVolume();
+      }
+
       setMicStatus("success");
     } catch (err: unknown) {
-      const e = err as { name?: string; message?: string };
-      console.warn("Media stream test error:", e);
-      // Try audio only if video failed
-      try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaStreamRef.current = audioStream;
-        setMicStatus("success");
-      } catch (audioErr) {
-        setMicStatus("error");
-        setMicErrorMsg("Microphone permission denied or device not found.");
-      }
-
-      setCameraStatus("error");
-      setCameraErrorMsg("Webcam permission denied or camera not connected.");
+      console.warn("Microphone test error:", err);
+      setMicStatus("error");
+      setMicErrorMsg("Microphone permission denied or device not found.");
     }
   };
 
-  const isAllReady =
-    browserInfo.isSupported &&
-    (micStatus === "success" || micStatus === "pending") &&
-    systemHealth?.status === "operational";
+  const runAllChecks = async () => {
+    setTesting(true);
+    detectBrowser();
+    await testMic();
+    setTesting(false);
+  };
+
+  const isAllReady = browserInfo.isSupported && micStatus === "success";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl bg-card border-border shadow-2xl">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl w-full max-h-[85vh] overflow-y-auto bg-card border-border shadow-2xl p-6 sm:p-7">
+        <DialogHeader className="pr-10">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-primary/10 text-primary">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold">
-                  Enterprise Assessment System Readiness Pre-Check
+                <DialogTitle className="text-base sm:text-lg font-bold">
+                  System Readiness Pre-Check
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Verifying your environment, proctoring security, audio/video, and code sandbox connectivity.
+                  Verifying browser compatibility and microphone input for assessments.
                 </DialogDescription>
               </div>
             </div>
@@ -233,215 +185,152 @@ export function SystemReadinessModal({ open, onOpenChange }: SystemReadinessModa
               variant="outline"
               onClick={runAllChecks}
               disabled={testing}
-              className="gap-1.5 text-xs h-8"
+              className="gap-1.5 text-xs h-8 shrink-0"
             >
               {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Re-run Diagnostics
+              Re-test
             </Button>
           </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
-          {/* 1. Browser & Proctoring Compatibility */}
-          <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20 flex flex-col justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 my-3">
+          {/* 1. Browser Compatibility */}
+          <div className="p-4 sm:p-5 rounded-xl border border-border/70 bg-muted/20 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-semibold text-foreground flex items-center gap-2">
                   <Monitor className="w-4 h-4 text-blue-500" />
-                  Browser & OS Compatibility
+                  Browser Compatibility
                 </span>
-                <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                  Verified
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[11px]",
+                    browserInfo.isSupported
+                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                      : "bg-destructive/10 text-destructive border-destructive/20"
+                  )}
+                >
+                  {browserInfo.isSupported ? "Compatible" : "Unsupported"}
                 </Badge>
               </div>
-              <div className="space-y-1.5 text-xs text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>Browser:</span>
-                  <span className="font-medium text-foreground">{browserInfo.name}</span>
+              <div className="space-y-2.5 text-xs text-muted-foreground">
+                <div className="flex justify-between items-center gap-4">
+                  <span className="shrink-0">Browser:</span>
+                  <span className="font-medium text-foreground text-right" title={browserInfo.name}>
+                    {browserInfo.name}
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Display Resolution:</span>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="shrink-0">Display Resolution:</span>
                   <span className="font-medium text-foreground">{browserInfo.resolution}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>WebRTC Audio/Video:</span>
-                  <span className="font-medium text-emerald-500">Supported</span>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="shrink-0">WebRTC Audio:</span>
+                  <span className={cn("font-medium", browserInfo.webrtc ? "text-emerald-500" : "text-destructive")}>
+                    {browserInfo.webrtc ? "Supported" : "Not Supported"}
+                  </span>
                 </div>
               </div>
             </div>
-            <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] text-muted-foreground flex items-center gap-1.5">
+            <div className="mt-4 pt-2.5 border-t border-border/50 text-[11px] text-muted-foreground flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span>Full-screen focus & anti-tab switch proctoring ready.</span>
+              <span>Browser environment verified.</span>
             </div>
           </div>
 
-          {/* 2. Code Execution Sandbox & Services */}
-          <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20 flex flex-col justify-between">
+          {/* 2. Microphone Input */}
+          <div className="p-4 sm:p-5 rounded-xl border border-border/70 bg-muted/20 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-foreground flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-violet-500" />
-                  Sandbox & Cloud Services
+                  <Mic className="w-4 h-4 text-amber-500" />
+                  Microphone Input
                 </span>
-                <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                  Online
-                </Badge>
+                {micStatus === "success" ? (
+                  <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                    Detected
+                  </Badge>
+                ) : micStatus === "error" ? (
+                  <Badge variant="outline" className="text-[11px] bg-destructive/10 text-destructive border-destructive/20">
+                    Permission Denied
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[11px] text-muted-foreground">
+                    Testing...
+                  </Badge>
+                )}
               </div>
-              <div className="space-y-1.5 text-xs text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>Code Runner (Piston):</span>
-                  <span className="font-medium text-emerald-500 flex items-center gap-1">
-                    <Wifi className="w-3 h-3" />
-                    {systemHealth?.services?.pistonSandbox?.latency || "18ms"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>AI Viva Evaluator:</span>
-                  <span className="font-medium text-foreground">
-                    {systemHealth?.services?.aiEvaluationEngine?.status || "Active"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Database State:</span>
-                  <span className="font-medium text-foreground">Connected</span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 pt-2.5 border-t border-border/50 text-[11px] text-muted-foreground flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span>Isolated Docker execution cluster operational.</span>
-            </div>
-          </div>
 
-          {/* 3. Microphone & Speech Recognition */}
-          <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-2">
-                <Mic className="w-4 h-4 text-amber-500" />
-                Microphone (AI Technical Viva)
-              </span>
-              {micStatus === "success" ? (
-                <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                  Detected
-                </Badge>
-              ) : micStatus === "error" ? (
-                <Badge variant="outline" className="text-[11px] bg-destructive/10 text-destructive border-destructive/20">
-                  Check Mic
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-[11px] text-muted-foreground">
-                  Testing...
-                </Badge>
-              )}
-            </div>
-
-            <p className="text-xs text-muted-foreground mb-3">
-              Required for the conversational AI viva round. Speak into your mic to test input level:
-            </p>
-
-            {/* Live audio level bar */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-[11px] text-muted-foreground">
-                <span>Input Level:</span>
-                <span className="font-mono">{micLevel}%</span>
-              </div>
-              <div className="w-full h-2.5 rounded-full bg-secondary/80 overflow-hidden">
-                <div
-                  className="h-full transition-all duration-75 rounded-full bg-gradient-to-r from-emerald-500 to-amber-500"
-                  style={{ width: `${Math.max(5, micLevel)}%` }}
-                />
-              </div>
-            </div>
-
-            {micErrorMsg && (
-              <p className="mt-2 text-[11px] text-destructive flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {micErrorMsg}
+              <p className="text-xs text-muted-foreground mb-3">
+                Speak into your mic to test audio input levels:
               </p>
-            )}
-          </div>
 
-          {/* 4. Webcam & Video Proctoring */}
-          <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-2">
-                <Camera className="w-4 h-4 text-rose-500" />
-                Webcam & Proctoring Feed
-              </span>
-              {cameraStatus === "success" ? (
-                <Badge variant="outline" className="text-[11px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                  Ready
-                </Badge>
-              ) : cameraStatus === "error" ? (
-                <Badge variant="outline" className="text-[11px] bg-amber-500/10 text-amber-500 border-amber-500/20">
-                  Optional / Blocked
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-[11px] text-muted-foreground">
-                  Testing...
-                </Badge>
+              {/* Live audio level bar */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <span>Input Level:</span>
+                  <span className="font-mono">{micLevel}%</span>
+                </div>
+                <div className="w-full h-2.5 rounded-full bg-secondary/80 overflow-hidden">
+                  <div
+                    className="h-full transition-all duration-75 rounded-full bg-gradient-to-r from-emerald-500 to-amber-500"
+                    style={{ width: `${Math.max(5, micLevel)}%` }}
+                  />
+                </div>
+              </div>
+
+              {micErrorMsg && (
+                <div className="mt-2.5">
+                  <p className="text-[11px] text-destructive flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{micErrorMsg}</span>
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={testMic}
+                    className="mt-2 text-xs h-7 w-full"
+                  >
+                    Allow Microphone
+                  </Button>
+                </div>
               )}
             </div>
 
-            {cameraActive ? (
-              <div className="relative rounded-lg overflow-hidden border border-border/60 bg-black aspect-video flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover -scale-x-100"
-                />
-                <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] text-emerald-400 font-medium flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live Preview OK
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-border/80 bg-background/50 p-4 text-center aspect-video flex flex-col items-center justify-center">
-                <Camera className="w-6 h-6 text-muted-foreground/60 mb-1" />
-                <p className="text-[11px] text-muted-foreground">
-                  {cameraErrorMsg || "Click 'Test Camera' to preview your video proctoring feed."}
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={testMedia}
-                  className="mt-2 text-xs h-7"
-                >
-                  Enable Camera
-                </Button>
-              </div>
-            )}
+            <div className="mt-4 pt-2.5 border-t border-border/50 text-[11px] text-muted-foreground flex items-center gap-1.5">
+              {micStatus === "success" ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Microphone ready for voice viva.</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>Microphone verification pending.</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Honor Code & Proctoring Banner */}
-        <div className="p-3 rounded-lg bg-primary/5 border border-primary/15 flex items-start gap-2.5">
-          <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-          <div className="text-xs">
-            <span className="font-semibold text-foreground">CodeArena Academic Integrity Policy:</span>
-            <span className="text-muted-foreground ml-1">
-              Assessment sessions run in a proctored environment. Tab switches, external clipboard paste, and multiple device usage are automatically flagged for instructor review.
-            </span>
-          </div>
-        </div>
-
-        <DialogFooter className="flex items-center justify-between sm:justify-between pt-2">
+        <DialogFooter className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-3 border-t border-border/40">
           <div className="flex items-center gap-2">
             {isAllReady ? (
               <span className="text-xs font-semibold text-emerald-500 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" />
-                All Systems Ready for Assessment
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                Browser & Mic Ready
               </span>
             ) : (
               <span className="text-xs text-amber-500 flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4" />
-                Review hardware permissions before starting
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {micStatus === "error"
+                  ? "Microphone access required"
+                  : "Checking device compatibility..."}
               </span>
             )}
           </div>
-          <Button onClick={() => onOpenChange(false)} className="px-5">
+          <Button onClick={() => onOpenChange(false)} className="px-6 shrink-0">
             Confirm & Close
           </Button>
         </DialogFooter>

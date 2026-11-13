@@ -19,7 +19,6 @@ import {
   Sparkles,
   Play,
   RotateCw,
-  Cpu,
   Layers,
   ChevronRight,
   AlertTriangle,
@@ -191,7 +190,7 @@ export function StudentDashboardPage() {
               className="gap-2 text-xs border-primary/30 hover:bg-primary/10 shadow-sm"
             >
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              System Diagnostics
+              System Readiness
             </Button>
             <Button
               onClick={() => navigate("/assessments")}
@@ -497,15 +496,15 @@ export function StudentDashboardPage() {
           </div>
         </div>
 
-        {/* 5. Enterprise Proctoring & System Health Widget */}
+        {/* 5. System Readiness & Compatibility Widget */}
         <div className="space-y-4">
           <div>
             <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
-              <Cpu className="w-5 h-5 text-emerald-500" />
-              Workstation & Proctoring Status
+              <ShieldCheck className="w-5 h-5 text-emerald-500" />
+              System Readiness Status
             </h2>
             <p className="text-xs text-muted-foreground">
-              Hardware readiness for secure assessments.
+              Browser & microphone readiness for assessments.
             </p>
           </div>
 
@@ -516,28 +515,14 @@ export function StudentDashboardPage() {
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
                   Browser & WebRTC
                 </span>
-                <span className="font-medium text-emerald-500">Chrome Compatible</span>
+                <span className="font-medium text-emerald-500">Compatible</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  Speech Recognition & Mic
+                  Microphone Access
                 </span>
                 <span className="font-medium text-foreground">Ready for Viva</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  Piston Code Sandbox
-                </span>
-                <span className="font-medium text-foreground">Docker Cluster Live</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  Academic Integrity Sentinel
-                </span>
-                <span className="font-medium text-emerald-500">Active</span>
               </div>
 
               <div className="pt-2 border-t border-border/60">
@@ -548,7 +533,7 @@ export function StudentDashboardPage() {
                   className="w-full text-xs h-8 gap-1.5"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                  Run Hardware Self-Test
+                  System Readiness Check
                 </Button>
               </div>
             </CardContent>
@@ -561,7 +546,7 @@ export function StudentDashboardPage() {
               Assessment Rules & Honor Code
             </div>
             <ul className="list-disc list-inside text-muted-foreground text-[11px] space-y-0.5">
-              <li>Keep camera and microphone enabled during viva.</li>
+              <li>Keep microphone enabled during viva.</li>
               <li>Tab switches and external navigation are monitored.</li>
               <li>Submit code within the allotted round timer.</li>
             </ul>

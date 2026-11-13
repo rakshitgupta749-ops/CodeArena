@@ -16,6 +16,11 @@ const interviewSessionSchema = new mongoose.Schema({
     ref: "Problem",
     required: true,
   },
+  preCodeAssessment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "PreCodeAssessment",
+    default: null,
+  },
   status: {
     type: String,
     enum: ["generating", "in_progress", "completed", "failed"],
@@ -111,11 +116,23 @@ report: {
       }
     }
   ],
+  preCodeScore: {
+    type: Number,
+    default: null,
+  },
+  preCodePassed: {
+    type: Boolean,
+    default: false,
+  },
   codingScore: {
     type: Number,
     default: null,
   },
   interviewScore: {
+    type: Number,
+    default: null,
+  },
+  alignmentScore: {
     type: Number,
     default: null,
   },
@@ -134,6 +151,14 @@ report: {
   overallScore: {
     type: Number,
     default: null, // Computed when completed; null means scoring is pending review
+  },
+  roundScores: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  crossRoundComparison: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
   },
   candidateReport: {
     type: mongoose.Schema.Types.Mixed,

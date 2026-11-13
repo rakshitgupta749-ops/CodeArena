@@ -1947,7 +1947,7 @@ function estimatePromptTokens(userPrompt, maxTokens) {
   return Math.max(512, Math.ceil((charEstimate + maxTokenEstimate) / 2));
 }
 
-async function generateLlmQuestionsV2({ code, topic }) {
+async function generateLlmQuestionsV2({ code, topic, round1Intent }) {
   if (!code || !String(code).trim()) {
     console.warn("[GeneratorV2] No submitted code provided; skipping LLM generation.");
     return [];
@@ -1967,7 +1967,20 @@ async function generateLlmQuestionsV2({ code, topic }) {
     `[GeneratorV2] Sending ${codeRegionContext.regionCount || "fallback"} code region(s) `
     + `(${codeRegionContext.text.length}/${codeRegionContext.originalLength} chars) to LLM.`
   );
+
+  let round1ContextText = "";
+  if (round1Intent) {
+    round1ContextText = `\n\nCANDIDATE ROUND 1 PRE-CODING INTENT:
+- Stated Algorithm / Approach: ${round1Intent.claimedAlgorithm || "Not specified"}
+- Stated Data Structures: ${round1Intent.claimedDataStructures || "Not specified"}
+- Stated Time/Space Complexity: ${round1Intent.claimedComplexity || "Not specified"}
+- Identified Edge Cases: ${round1Intent.identifiedEdgeCases || "Not specified"}
+${round1Intent.candidateResponsesSummary ? `Candidate Round 1 Statements: ${round1Intent.candidateResponsesSummary}` : ""}
+When creating code-anchor questions, please connect the code lines to the approach, complexity, or data structures the candidate declared in Round 1 where applicable (e.g., verifying if the code matches their planned complexity or algorithm).`;
+  }
+
   const baseUserPrompt = buildV2Prompt(userTemplate, topic || "", codeRegionContext.text)
+    + round1ContextText
     + CODE_QUESTION_PROMPT_GUARDRAILS;
   const validationRetryAttempts = Number(configV2.generation?.validation_retry_attempts);
   const maxAttempts = Math.max(
@@ -2037,14 +2050,15 @@ async function generateLlmQuestionsV2({ code, topic }) {
  * @param {object} opts
  * @param {string} [opts.code] - Submitted Java code
  * @param {string} [opts.topic] - Topic or problem description
+ * @param {object} [opts.round1Intent] - Round 1 pre-code intent and architecture
  * @returns {Promise<{questions: object[], counts: object, conceptExtraction: object}>}
  */
-async function generateQuestionsV2({ code, topic }) {
-  console.log("[GeneratorV2] Starting hybrid question generation pipeline...");
+async function generateQuestionsV2({ code, topic, round1Intent }) {
+  console.log("[GeneratorV2] Starting hybrid question generation pipeline with Round 1 cross-linkage...");
 
   const [csvQuestionsResult, codeQuestionsResult] = await Promise.allSettled([
     Promise.resolve().then(() => sampleBalancedCsvQuestions(CSV_COUNT)),
-    generateLlmQuestionsV2({ code, topic }),
+    generateLlmQuestionsV2({ code, topic, round1Intent }),
   ]);
 
   const targetQuestionCount = Math.max(INTERVIEW_QUESTION_COUNT, CSV_COUNT + CODE_LLM_COUNT);

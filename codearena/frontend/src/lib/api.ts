@@ -289,9 +289,42 @@ export interface InterviewSession {
   overallScore: number | null;
   codingScore: number | null;
   interviewScore: number | null;
+  preCodeScore?: number | null;
+  alignmentScore?: number | null;
+  preCodePassed?: boolean;
   codingPassed: boolean;
   interviewPassed: boolean;
   overallPassed: boolean;
+  preCodeAssessment?: any;
+  roundScores?: {
+    round1PreCoding: number;
+    round2Coding: number;
+    round3Interview: number;
+    alignmentIndex: number;
+    weights?: {
+      round1: number;
+      round2: number;
+      round3: number;
+      alignment: number;
+    };
+  } | null;
+  crossRoundComparison?: {
+    alignmentScore: number;
+    summary: string;
+    consistencyRating?: string;
+    comparisons: Array<{
+      category: string;
+      round1Claim: string;
+      round2CodeFact: string;
+      round3Defense: string;
+      verdict: "Aligned" | "Justified Pivot" | "Divergent";
+      explanation: string;
+    }>;
+    pivotsIdentified?: Array<{
+      category: string;
+      explanation: string;
+    }>;
+  } | null;
   candidateReport?: {
     strengths: string;
     weaknesses: string;

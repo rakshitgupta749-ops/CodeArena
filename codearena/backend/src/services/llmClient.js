@@ -48,10 +48,26 @@ function getApiKey(apiKeyEnv = "GROQ_API_KEY") {
   if (apiKeyEnv !== "GROQ_API_KEY" && process.env[apiKeyEnv]) {
     return process.env[apiKeyEnv];
   }
+
+  // If using TCS GenAI Lab endpoint, LiteLLM requires a virtual key starting with 'sk-'
+  const apiUrl = process.env.GROQ_API_URL || DEFAULT_GROQ_API_URL;
+  const isTcsGenAiLab = apiUrl.includes("genailab.tcs.in");
   
   const keys = [];
   if (process.env.GROQ_API_KEY) keys.push(process.env.GROQ_API_KEY);
   if (process.env.GROQ_API_KEY_2) keys.push(process.env.GROQ_API_KEY_2);
+
+  // If ambient system variable had a GroqCloud 'gsk_' key but we need a 'sk-' key, reload from .env
+  if (isTcsGenAiLab && keys.some(k => k && k.startsWith("gsk_"))) {
+    try {
+      const dotenv = require("dotenv");
+      const path = require("path");
+      const envConfig = dotenv.config({ path: path.join(__dirname, "..", "..", ".env"), override: true });
+      if (envConfig.parsed?.GROQ_API_KEY) {
+        return envConfig.parsed.GROQ_API_KEY;
+      }
+    } catch {}
+  }
   
   if (keys.length === 0) {
     throw new Error(`GROQ_API_KEY is not set in environment variables.`);

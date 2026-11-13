@@ -1061,11 +1061,30 @@ function generateReport({
 
     conceptGraph,
 
-    evidenceStore
+    evidenceStore,
+
+    preCodeAssessment,
+
+    crossRoundComparison
 
 }) {
 
     const report = createReport();
+
+    report.roundScores = session?.roundScores || {
+        round1PreCoding: session?.preCodeScore ?? 75,
+        round2Coding: session?.codingScore ?? 0,
+        round3Interview: session?.interviewScore ?? 0,
+        alignmentIndex: session?.alignmentScore ?? 80,
+    };
+    report.crossRoundComparison = crossRoundComparison || session?.crossRoundComparison || null;
+    report.preCodeAssessment = preCodeAssessment ? {
+        id: preCodeAssessment._id,
+        status: preCodeAssessment.status,
+        score: preCodeAssessment.preCodeScore,
+        rubricSummary: preCodeAssessment.rubricSummary,
+        intentProfile: preCodeAssessment.intentProfile,
+    } : null;
 
     populateCompetencySection(
 

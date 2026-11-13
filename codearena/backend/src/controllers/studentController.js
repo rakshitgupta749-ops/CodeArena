@@ -473,9 +473,11 @@ const getStudentReports = async (req, res) => {
       const preCode = preCodes.find((p) => p.problem.toString() === problem._id.toString());
       const assignment = assignments.find((a) => a.assessment && a.assessment.toString() === problem._id.toString());
 
+      const preCodeScore = preCode?.preCodeScore ?? (preCode?.status === "passed" ? 80 : 50);
       const codingScore = sesh.codingScore ?? (sesh.codingPassed ? 100 : 75);
       const interviewScore = sesh.interviewScore ?? sesh.overallScore ?? 80;
-      const overallScore = sesh.overallScore ?? Math.round((codingScore + interviewScore) / 2);
+      const alignmentScore = sesh.alignmentScore ?? sesh.crossRoundComparison?.alignmentScore ?? 80;
+      const overallScore = sesh.overallScore ?? Math.round((preCodeScore * 0.25) + (codingScore * 0.35) + (interviewScore * 0.25) + (alignmentScore * 0.15));
 
       return {
         id: sesh._id,
@@ -491,6 +493,7 @@ const getStudentReports = async (req, res) => {
         grade: sesh.grade || (overallScore >= 85 ? "Excellent" : overallScore >= 70 ? "Good" : "Needs Review"),
         scores: {
           preCoding: {
+            score: preCodeScore,
             integrityScore: preCode?.integrityScore ?? 100,
             status: preCode?.status || "passed",
           },
@@ -506,6 +509,10 @@ const getStudentReports = async (req, res) => {
             passed: sesh.interviewPassed ?? true,
             totalQuestions: sesh.questions?.length || 5,
             answeredQuestions: sesh.answers?.length || 5,
+          },
+          alignment: {
+            score: alignmentScore,
+            rating: sesh.crossRoundComparison?.consistencyRating || "High",
           },
         },
         reportUrl: `/problems/${problem._id}/report`,

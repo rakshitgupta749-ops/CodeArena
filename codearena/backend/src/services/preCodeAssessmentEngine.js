@@ -729,6 +729,7 @@ async function finalizeAssessment({
 
   let strongCount = 0;
   let averageCount = 0;
+  let totalRubricPoints = 0;
   const summary = [];
 
   RUBRICS.forEach((r) => {
@@ -736,8 +737,15 @@ async function finalizeAssessment({
     const rating = state.rating || "weak";
     const reason = state.reason || "Not assessed due to time constraints or early termination.";
 
-    if (rating === "strong") strongCount++;
-    if (rating === "average") averageCount++;
+    if (rating === "strong") {
+      strongCount++;
+      totalRubricPoints += 100;
+    } else if (rating === "average") {
+      averageCount++;
+      totalRubricPoints += 70;
+    } else {
+      totalRubricPoints += 35;
+    }
 
     summary.push({
       rubric: r,
@@ -746,9 +754,34 @@ async function finalizeAssessment({
     });
   });
 
+  const calculatedPreCodeScore = Math.round(totalRubricPoints / RUBRICS.length);
+  assessment.preCodeScore = calculatedPreCodeScore;
+
+  // Build structured intent profile
+  const candidateMessages = (assessment.conversation || [])
+    .filter(m => m.role === "candidate")
+    .map(m => m.text);
+
+  const getRubricReason = (rubricName) => {
+    return assessment.rubricState?.[rubricName]?.reason || "";
+  };
+
+  assessment.intentProfile = {
+    problemUnderstanding: getRubricReason("Understanding of the Problem"),
+    claimedAlgorithm: getRubricReason("Algorithm / Approach"),
+    claimedDataStructures: getRubricReason("Data Structure Choice"),
+    claimedComplexity: getRubricReason("Time & Space Complexity"),
+    identifiedEdgeCases: getRubricReason("Edge Cases"),
+    oopDesign: getRubricReason("OOP / Design Concepts"),
+    candidateResponsesSummary: candidateMessages.slice(-5).join(" | "),
+    score: calculatedPreCodeScore,
+  };
+
   assessment.rubricSummary = summary;
   if (typeof assessment.markModified === "function") {
     assessment.markModified("rubricSummary");
+    assessment.markModified("intentProfile");
+    assessment.markModified("preCodeScore");
   }
 
   // PASS requires R1 NOT weak, AND either:

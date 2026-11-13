@@ -149,7 +149,7 @@ export function UserLayout() {
                   className="text-xs cursor-pointer"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 mr-2 text-emerald-500" />
-                  System Diagnostics
+                  System Readiness
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
